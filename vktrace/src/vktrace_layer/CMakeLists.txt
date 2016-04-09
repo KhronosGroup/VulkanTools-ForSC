@@ -1,16 +1,16 @@
 cmake_minimum_required(VERSION 2.8)
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-   if (BUILD_WSI_XCB_SUPPORT)
-       set(ENV{VULKAN_WSI} "Xcb")
-   elseif (BUILD_WSI_XLIB_SUPPORT)
-       set(ENV{VULKAN_WSI} "Xlib")
-   elseif (BUILD_WSI_WAYLAND_SUPPORT)
-       set(ENV{VULKAN_WSI} "Wayland")
-   else()
-       # Mir WSI Case
-       set(ENV{VULKAN_WSI} "Mir")
-   endif()
+    if (BUILD_WSI_XCB_SUPPORT)
+        set(ENV{VULKAN_WSI} "Xcb")
+    elseif (BUILD_WSI_XLIB_SUPPORT)
+        set(ENV{VULKAN_WSI} "Xlib")
+    elseif (BUILD_WSI_WAYLAND_SUPPORT)
+        set(ENV{VULKAN_WSI} "Wayland")
+    else()
+        # Mir WSI Case
+        set(ENV{VULKAN_WSI} "Mir")
+    endif()
 endif()
 
 project(VkLayer_vktrace_layer)
@@ -39,7 +39,7 @@ set(SRC_LIST
     vktrace_vk_exts.cpp
     codegen/vktrace_vk_vk.cpp
     ${CODEGEN_UTILS_DIR}/vk_struct_size_helper.c
-)
+    )
 #    codegen/vktrace_vk_vk_lunarg_debug_marker.cpp
 #    ${CODEGEN_UTILS_DIR}/vk_lunarg_debug_marker_struct_size_helper.c
 
@@ -53,17 +53,17 @@ set (HDR_LIST
     ${CODEGEN_VKTRACE_DIR}/vktrace_vk_packet_id.h
     ${CODEGEN_VKTRACE_DIR}/vktrace_vk_vk_packets.h
     ${CODEGEN_UTILS_DIR}/vk_struct_size_helper.h
-)
+    )
 
 #    codegen/vktrace_vk_vk_lunarg_debug_marker.h
 #    ${CODEGEN_VKTRACE_DIR}/vktrace_vk_vk_lunarg_debug_marker_packets.h
 #    ${CODEGEN_UTILS_DIR}/vk_lunarg_debug_marker_struct_size_helper.h
 
 add_custom_command(OUTPUT vk_dispatch_table_helper.h
-	COMMAND ${PYTHON_CMD} ${CMAKE_SOURCE_DIR}/vk-generate.py ${DisplayServer} dispatch-table-ops layer > vk_dispatch_table_helper.h
-	DEPENDS ${CMAKE_SOURCE_DIR}/vk-generate.py ${CMAKE_SOURCE_DIR}/vulkan.py)
+    COMMAND ${PYTHON_CMD} ${CMAKE_SOURCE_DIR}/vk-generate.py ${DisplayServer} dispatch-table-ops layer > vk_dispatch_table_helper.h
+    DEPENDS ${CMAKE_SOURCE_DIR}/vk-generate.py ${CMAKE_SOURCE_DIR}/vulkan.py)
 add_custom_target(generate_vktrace_layer_helpers DEPENDS
-	vk_dispatch_table_helper.h)
+    vk_dispatch_table_helper.h)
 
 include_directories(
     codegen
@@ -74,7 +74,7 @@ include_directories(
     ${VKTRACE_VULKAN_INCLUDE_DIR}
     ${CODEGEN_UTILS_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}/../../../layersvt
-)
+    )
 # copy/link layer json file into build/layersvt directory
 if (NOT WIN32)
     # extra setup for out-of-tree builds
@@ -87,7 +87,12 @@ if (NOT WIN32)
 else()
     if (NOT (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_CURRENT_BINARY_DIR))
         FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/windows/VkLayer_vktrace_layer.json src_json)
-        FILE(TO_NATIVE_PATH ${PROJECT_BINARY_DIR}/../../../layersvt/$<CONFIGURATION>/VkLayer_vktrace_layer.json dst_json)
+        if (CMAKE_GENERATOR MATCHES "^Visual Studio.*")
+            FILE(TO_NATIVE_PATH ${PROJECT_BINARY_DIR}/../../../layersvt/$<CONFIGURATION>/VkLayer_vktrace_layer.json dst_json)
+        else()
+            FILE(TO_NATIVE_PATH ${PROJECT_BINARY_DIR}/../../../layersvt/VkLayer_vktrace_layer.json dst_json)
+        endif()
+
         add_custom_target(vktrace_layer-json ALL
             COMMAND copy ${src_json} ${dst_json}
             VERBATIM
@@ -104,7 +109,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(OS_TRACER_LIBS
         -shared
         -ldl
-    )
+        )
 endif()
 
 if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
@@ -117,7 +122,7 @@ target_link_libraries(${PROJECT_NAME}
     vktrace_common
     ${VKTRACE_VULKAN_LIB}
     ${OS_TRACER_LIBS}
-)
+    )
 
 build_options_finalize()
 

@@ -4,7 +4,7 @@ macro(run_vk_helper subcmd)
     add_custom_command(OUTPUT ${ARGN}
         COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk_helper.py --${subcmd} ${PROJECT_SOURCE_DIR}/include/vulkan/vulkan.h --abs_out_dir ${CMAKE_CURRENT_BINARY_DIR}
         DEPENDS ${PROJECT_SOURCE_DIR}/vk_helper.py ${PROJECT_SOURCE_DIR}/include/vulkan/vulkan.h
-    )
+        )
 endmacro()
 
 ## VulkanTools has its own layer generator script
@@ -12,7 +12,7 @@ macro(run_vk_vtlayer_generate subcmd output)
     add_custom_command(OUTPUT ${output}
         COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-vtlayer-generate.py ${DisplayServer} ${subcmd} ${PROJECT_SOURCE_DIR}/include/vulkan/vulkan.h > ${output}
         DEPENDS ${PROJECT_SOURCE_DIR}/vk-vtlayer-generate.py ${PROJECT_SOURCE_DIR}/include/vulkan/vulkan.h ${PROJECT_SOURCE_DIR}/vulkan.py
-    )
+        )
 endmacro()
 
 set(LAYER_JSON_FILES
@@ -27,15 +27,27 @@ set(VK_LAYER_RPATH /usr/lib/x86_64-linux-gnu/vulkan/layer:/usr/lib/i386-linux-gn
 set(CMAKE_INSTALL_RPATH ${VK_LAYER_RPATH})
 
 if (WIN32)
+    # extra WIN32 setup for out-of-tree builds
     if (NOT (CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_CURRENT_BINARY_DIR))
-        foreach (config_file ${LAYER_JSON_FILES})
-            FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/windows/${config_file}.json src_json)
-            FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION>/${config_file}.json dst_json)
-            add_custom_target(${config_file}-json ALL
-                COMMAND copy ${src_json} ${dst_json}
-                VERBATIM
-                )
-        endforeach(config_file)
+        if (CMAKE_GENERATOR MATCHES "^Visual Studio.*")
+            foreach (config_file ${LAYER_JSON_FILES})
+                FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/windows/${config_file}.json src_json)
+                FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIGURATION>/${config_file}.json dst_json)
+                add_custom_target(${config_file}-json ALL
+                    COMMAND copy ${src_json} ${dst_json}
+                    VERBATIM
+                    )
+            endforeach(config_file)
+        else()
+            foreach (config_file ${LAYER_JSON_FILES})
+                FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/windows/${config_file}.json src_json)
+                FILE(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}/${config_file}.json dst_json)
+                add_custom_target(${config_file}-json ALL
+                    COMMAND copy ${src_json} ${dst_json}
+                    VERBATIM
+                    )
+            endforeach(config_file)
+        endif()
     endif()
 else()
     # extra setup for out-of-tree builds
@@ -51,22 +63,22 @@ endif()
 
 if (WIN32)
     macro(add_vk_layer target)
-    add_custom_command(OUTPUT VkLayer_${target}.def
-        COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py ${DisplayServer} win-def-file VkLayer_${target} layer > VkLayer_${target}.def
-        DEPENDS ${PROJECT_SOURCE_DIR}/vk-generate.py ${PROJECT_SOURCE_DIR}/vulkan.py
-    )
-    add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
-    target_link_Libraries(VkLayer_${target} VkLayer_utilsvt)
-    add_dependencies(VkLayer_${target} generate_vt_helpers)
-    set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "/DEF:${CMAKE_CURRENT_BINARY_DIR}/VkLayer_${target}.def")
+        add_custom_command(OUTPUT VkLayer_${target}.def
+            COMMAND ${PYTHON_CMD} ${PROJECT_SOURCE_DIR}/vk-generate.py ${DisplayServer} win-def-file VkLayer_${target} layer > VkLayer_${target}.def
+            DEPENDS ${PROJECT_SOURCE_DIR}/vk-generate.py ${PROJECT_SOURCE_DIR}/vulkan.py
+            )
+        add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
+        target_link_Libraries(VkLayer_${target} VkLayer_utilsvt)
+        add_dependencies(VkLayer_${target} generate_vt_helpers)
+        set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "/DEF:${CMAKE_CURRENT_BINARY_DIR}/VkLayer_${target}.def")
     endmacro()
 else()
     macro(add_vk_layer target)
-    add_library(VkLayer_${target} SHARED ${ARGN})
-    target_link_Libraries(VkLayer_${target} VkLayer_utilsvt)
-    add_dependencies(VkLayer_${target} generate_vt_helpers)
-    set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
-    install(TARGETS VkLayer_${target} DESTINATION ${PROJECT_BINARY_DIR}/install_staging)
+        add_library(VkLayer_${target} SHARED ${ARGN})
+        target_link_Libraries(VkLayer_${target} VkLayer_utilsvt)
+        add_dependencies(VkLayer_${target} generate_vt_helpers)
+        set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
+        install(TARGETS VkLayer_${target} DESTINATION ${PROJECT_BINARY_DIR}/install_staging)
     endmacro()
 endif()
 
@@ -77,7 +89,7 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/../include/vulkan
     ${CMAKE_CURRENT_BINARY_DIR}
     ${PROJECT_SOURCE_DIR}/../glslang/SPIRV
-)
+    )
 
 if (WIN32)
     set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_CRT_SECURE_NO_WARNINGS")
@@ -117,7 +129,7 @@ run_vk_helper(gen_struct_wrappers
     vk_struct_wrappers.cpp
     vk_safe_struct.h
     vk_safe_struct.cpp
-)
+    )
 
 add_custom_target(generate_vt_helpers DEPENDS
     vk_dispatch_table_helper.h
@@ -132,7 +144,7 @@ add_custom_target(generate_vt_helpers DEPENDS
     vk_struct_wrappers.cpp
     vk_safe_struct.h
     vk_safe_struct.cpp
-)
+    )
 
 #VulkanTools layers
 run_vk_vtlayer_generate(generic generic_layer.cpp)
@@ -148,7 +160,7 @@ else()
     install(TARGETS VkLayer_utilsvt DESTINATION ${PROJECT_BINARY_DIR}/install_staging)
 endif()
 
-# VulkanTools layers
+#VulkanTools layers
 add_vk_layer(basic basic.cpp ../layers/vk_layer_table.cpp)
 add_vk_layer(multi multi.cpp ../layers/vk_layer_table.cpp)
 # generated

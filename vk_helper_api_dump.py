@@ -1135,7 +1135,7 @@ class StructWrapperGen:
                     if self.struct_dict[s][m]['ptr']:
                         sh_funcs.append('%s' % lineinfo.get())
                         sh_funcs.append('    if (pStruct->%s)' % (self.struct_dict[s][m]['name']))
-                        sh_funcs.append('        ss[%u] << "0x" << hex << nouppercase << pStruct->%s << dec << " (See individual array values below)";' % (index, self.struct_dict[s][m]['name']))
+                        sh_funcs.append('        ss[%u];' % index)
                         sh_funcs.append('    else')
                         sh_funcs.append('        ss[%u].str("NULL");' % (index))
                         value_print = 'ss[%u].str()' % index

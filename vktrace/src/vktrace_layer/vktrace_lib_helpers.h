@@ -37,6 +37,7 @@ typedef struct _VKAllocInfo {
     BOOL           didFlush;
     VkDeviceMemory handle;
     uint8_t        *pData;
+    uint8_t        *pLastData;
     BOOL           valid;
 } VKAllocInfo;
 
@@ -84,6 +85,7 @@ static void init_mem_info_entrys(VKAllocInfo *ptr, const unsigned int num)
     {
         VKAllocInfo *entry = ptr + i;
         entry->pData = NULL;
+        entry->pLastData = NULL;
         entry->totalSize = 0;
         entry->rangeSize = 0;
         entry->rangeOffset = 0;
@@ -201,8 +203,71 @@ static void add_new_handle_to_mem_info(const VkDeviceMemory handle, VkDeviceSize
         entry->rangeOffset = 0;
         entry->didFlush = FALSE;
         entry->pData = (uint8_t *) pData;   // NOTE: VKFreeMemory will free this mem, so no malloc()
+        entry->pLastData = NULL;
     }
     vktrace_leave_critical_section(&g_memInfoLock);
+}
+
+static uint64_t memcmp_pos(uint8_t *p1, uint8_t *p2, uint64_t size, bool forward)
+{
+
+    uint64_t pos, end;
+    uint8_t diff;
+
+    if (forward) {
+        pos = 0;
+        end = size;
+        do {
+            diff = *p1++ - *p2++;
+        } while (pos++ != end && diff == 0);
+        pos--;
+    } else
+    {
+        p1 = p1 + size - 1;
+        p2 = p2 + size - 1;
+        pos = size - 1;
+        end = 0;
+        do {
+            diff = *p1-- - *p2--;
+        } while (pos-- != end && diff == 0);
+        pos++;
+    }
+
+    return pos;
+}
+
+static void compare_mem_info_entry(VKAllocInfo *entry, uint8_t **ppData, uint64_t *pSize, uint64_t *pOff)
+{
+    assert(entry);
+    assert(pSize);
+    assert(pOff);
+    if (entry->pData == NULL || entry->pLastData == NULL) {
+        *pSize = 0;
+        *pOff = 0;
+        *ppData = NULL;
+        return;
+    }
+
+    uint64_t siz = entry->rangeSize;
+    uint8_t *pData = entry->pData;
+    uint8_t *pLastData = entry->pLastData;
+    // search for the starting changed byte position
+    uint64_t start = memcmp_pos(pData, pLastData, siz, true);
+    if (start == siz) {
+        // no changed bytes
+        *pSize = 0;
+        *pOff = 0;
+        *ppData = NULL;
+        return;
+    }
+
+    // search for the ending changed byte position
+    uint64_t end = memcmp_pos(pData + start, pLastData + start, siz - start, false);
+    *pSize = end + 1;
+    *pOff = start;
+    *ppData = pData + *pOff;
+    assert(*pSize <= entry->rangeSize);
+    assert(*pOff < entry->rangeSize + entry->rangeOffset);
 }
 
 static void add_data_to_mem_info(const VkDeviceMemory handle, VkDeviceSize rangeSize, VkDeviceSize rangeOffset, void *pData)
@@ -220,6 +285,10 @@ static void add_data_to_mem_info(const VkDeviceMemory handle, VkDeviceSize range
             entry->rangeSize = rangeSize;
         entry->rangeOffset = rangeOffset;
         assert(entry->totalSize >= entry->rangeSize + rangeOffset);
+        // keep a copy of this initial data as a reference
+        entry->pLastData = VKTRACE_NEW_ARRAY(uint8_t, entry->rangeSize);
+        assert(entry->pLastData);
+        memcpy(entry->pLastData, entry->pData, entry->rangeSize);
     }
     g_memInfo.pLastMapped = entry;
     vktrace_leave_critical_section(&g_memInfoLock);
@@ -235,6 +304,9 @@ static void rm_handle_from_mem_info(const VkDeviceMemory handle)
     {
         entry->valid = FALSE;
         entry->pData = NULL;
+        if (entry->pLastData)
+            VKTRACE_DELETE(entry->pLastData); 
+        entry->pLastData = NULL;
         entry->totalSize = 0;
         entry->rangeSize = 0;
         entry->rangeOffset = 0;

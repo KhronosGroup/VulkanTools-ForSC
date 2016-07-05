@@ -1046,6 +1046,8 @@ class Subcommand(object):
             if 'Dbg' not in proto.name and proto.name not in [ 'CreateAndroidSurfaceKHR', 'CreateWaylandSurfaceKHR', 'CreateMirSurfaceKHR',
                                                                'GetPhysicalDeviceWaylandPresentationSupportKHR', 'GetPhysicalDeviceMirPresentationSupportKHR',]:
                 if 'UnmapMemory' == proto.name:
+                    proto.params.append(vulkan.Param("uint64_t", "size"))
+                    proto.params.append(vulkan.Param("uint64_t", "offset"))
                     proto.params.append(vulkan.Param("void*", "pData"))
                 elif 'FlushMappedMemoryRanges' == proto.name:
                     proto.params.append(vulkan.Param("void**", "ppData"))
@@ -1221,13 +1223,17 @@ class Subcommand(object):
         rof_body.append('        }')
         rof_body.append('        else')
         rof_body.append('        {')
-        rof_body.append('            assert(offset >= mr.offset);')
         rof_body.append('            assert(size <= mr.size && (size + offset) <= (size_t)m_allocInfo.allocationSize);')
         rof_body.append('        }')
         rof_body.append('        memcpy(mr.pData + offset, pSrcData, size);')
         rof_body.append('        if (!mr.pending && entire_map)')
         rof_body.append('            m_mapRange.pop_back();')
         rof_body.append('    }')
+        rof_body.append('')
+        rof_body.append('    size_t getTotalMapSize()')
+        rof_body.append('    {')
+        rof_body.append('        return (m_allocInfo.allocationSize);')
+        rof_body.append('    }\n')
         rof_body.append('')
         rof_body.append('    size_t getMemoryMapSize()')
         rof_body.append('    {')

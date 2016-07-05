@@ -1592,8 +1592,13 @@ void vkReplay::manually_replay_vkUnmapMemory(packet_vkUnmapMemory* pPacket)
     {
         if (local_mem.pGpuMem)
         {
-            if (pPacket->pData)
-                local_mem.pGpuMem->copyMappingData(pPacket->pData, true, 0, 0);  // copies data from packet into memory buffer
+            if (pPacket->pData) {
+                // copy data from packet into memory buffer
+                if (pPacket->size == local_mem.pGpuMem->getTotalMapSize())
+                    local_mem.pGpuMem->copyMappingData(pPacket->pData, true, pPacket->size, pPacket->offset);
+                else
+                    local_mem.pGpuMem->copyMappingData(pPacket->pData, false, pPacket->size, pPacket->offset);
+            }
         }
         m_vkFuncs.real_vkUnmapMemory(remappedDevice, local_mem.replayGpuMem);
     }

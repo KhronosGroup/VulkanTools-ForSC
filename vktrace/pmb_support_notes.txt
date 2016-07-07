@@ -1,0 +1,81 @@
+Overview of the QueueSubmit approach:
+
+Keep track of the Vulkan device memory maps that are coherent and active (not unmapped or
+entirely flushed).  At vkQueuSubmit go through all Command Buffers to be submitted finding
+any references to active maps. The reference chain from a memory object to an object within
+a command buffer is roughly:
+
+(Not finished yet)
+DeviceMemory->    Image->ImageView->Framebuffer
+                        ->        ->
+                       ->Framebuffer
+            ->   Buffer->BufferView->
+(via there binding to a VkImage or VkBuffer which are bound to a mapped coherent memory object.  For each 
+
+
+Vulkan commands that need to add support for tracking reference links outside command buffers:
+AllocateMemory, Free Memory (needed?)
+MapMemory, UnmapMemory, FlushMappedMemoryRanges
+CreateImage, DestroyImage, BindImageMemory, CreateImageView, DestroyImageView
+CreateBuffer, DestroyBuffer, BindBufferMemory, CreateBufferView, DestroyBufferView
+AllocateDescriptorSets, FreeDescriptorSets, UpdateDescriptorSets
+CreateFramebuffer, DestroyFramebuffer
+AllocateCommandBuffers, FreeCommandBuffers, ResetCommandBuffers
+BeginCommandBuffers, EndCommandBuffers
+others?
+
+Vulkan commands within command buffer that can add a memory reference that may be mapped
+CmdBindIndexBuffer, CmdBindVertexBuffer,
+CmdDrawIndirect, CmdDrawIndexedIndirect, CmdDispatchIndirect,
+CmdCopyBuffer, CmdCopyBuffertoImage, CmdCopyImageToBuffer,
+CmdUpdateBuffer, CmdFillBuffer,
+CmdCopyQueryPoolResults,
+CmdCopyImage, CmdBLitImage,
+CmdClearColorImage, CmdClearDepthStencilImage, CmdResolveImage,
+CmdBindDescriptorSets, CmdPipelineBarrier,
+CmdExucuteCommands,
+CmdBeginRenderPass,
+others?
+
+To avoid excessesive map lookups (along with associated locking) to track references,
+ will wrap these objects:
+VkDeviceMemory, VkImage, VkBuffer, VkImageView, VkDescriptorSet, VkFramebuffer,
+VkCommandBuffer
+
+
+Data Structures:
+Use wrapped objects!
+
+struct wDeviceMemory {
+    VkDeviceMemory mem;
+    bool isMapped;
+    bool isFlushed;     // assume app will flush all memory ranges as needed within a memory object
+                        // thus, isFlushed and isMapped  == !isMapped for capturing
+			// host data writes to mapped memory
+    bool isCoherent;
+    VkDeviceSize   size;
+    VkDeviceSize   offset;
+};
+struct wImage {
+    VkImage img;
+    Vk
+};
+
+struct wBuffer {
+};
+
+
+What part of a persistently mapped buffer to capture?
+We don't know if a PMB that is referenced in a QueueSubmit command buffer actually has been
+written by the app either completely, partially or not at all.
+
+1) Assume all these memory regions are dirty  and capture all of them. Simple but may lead
+to large trace files and bad performance in some cases.
+2) Keep a copy of the last contents of each mapped buffer and memcmp to see if it has changed.
+If anything has changed capture the whole buffer.
+3) Keep a copy of the last contents of each mapped buffer and memcmp to see if it has changed.
+Capture exactly all regions which have changed.  Implies a capture list per each mapped memory buffer since there may be several sub regions of the enitre buffer that have changed.
+4)  Keep a copy of the last contents of each mapped buffer and memcmp to see if it has changed.
+Start memcmp from the begnning and end of the buffer. Once find a change, mark that as the start/end of the single region within the buffer to capture.
+
+RenderDoc does alogorithm 4).

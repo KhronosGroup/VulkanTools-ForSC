@@ -215,6 +215,9 @@ BOOL vktrace_MessageStream_SetupClientSocket(MessageStream* pStream)
     hostAddrInfo.ai_socktype = SOCK_STREAM;
     hostAddrInfo.ai_protocol = IPPROTO_TCP;
 
+// wait for 10 seconds to connect debugger
+//sleep(10);
+
     hr = getaddrinfo(pStream->mAddress, pStream->mPort, &hostAddrInfo, &pStream->mHostAddressInfo);
     if (hr != 0) {
         vktrace_LogError("Client: Failed getaddrinfo result=%d.", hr);

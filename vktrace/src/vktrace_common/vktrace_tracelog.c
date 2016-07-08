@@ -49,7 +49,7 @@ void vktrace_tracelog_set_tracer_id(uint8_t tracerId)
 }
 
 VKTRACE_REPORT_CALLBACK_FUNCTION s_reportFunc;
-VktraceLogLevel s_logLevel = VKTRACE_LOG_ERROR;
+VktraceLogLevel s_logLevel = VKTRACE_LOG_VERBOSE;
 
 const char* vktrace_LogLevelToString(VktraceLogLevel level)
 {

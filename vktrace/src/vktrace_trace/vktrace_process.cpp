@@ -124,7 +124,7 @@ VKTRACE_THREAD_ROUTINE_RETURN_TYPE Process_RunRecordTraceThread(LPVOID _threadIn
     while (pInfo->pProcessInfo->serverRequestsTermination == FALSE)
     {
         // get a packet
-        //vktrace_LogDebug("Waiting for a packet...");
+        vktrace_LogDebug("Waiting for a packet...");
 
         // read entire packet in
         pHeader = vktrace_read_trace_packet(fileLikeSocket);
@@ -142,8 +142,8 @@ VKTRACE_THREAD_ROUTINE_RETURN_TYPE Process_RunRecordTraceThread(LPVOID _threadIn
             break;
         }
 
-        //vktrace_LogDebug("Received packet id: %hu", pHeader->packet_id);
-        
+        vktrace_LogDebug("Received packet id: %hu", pHeader->packet_id);
+
         if (pHeader->pBody == (uintptr_t) NULL)
         {
             vktrace_LogWarning("Received empty packet body for id: %hu", pHeader->packet_id);

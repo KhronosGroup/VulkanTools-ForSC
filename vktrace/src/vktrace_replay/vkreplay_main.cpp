@@ -205,7 +205,8 @@ int vkreplay_main(int argc, char **argv, vktrace_window_handle window = 0)
 
     // Default verbosity level
     vktrace_LogSetCallback(loggingCallback);
-    vktrace_LogSetLevel(VKTRACE_LOG_ERROR);
+    //vktrace_LogSetLevel(VKTRACE_LOG_ERROR);
+    vktrace_LogSetLevel(VKTRACE_LOG_DEBUG);
 
     // apply settings from cmd-line args
     if (vktrace_SettingGroup_init_from_cmdline(&g_replaySettingGroup, argc, argv, &replaySettings.pTraceFilePath) != 0)
@@ -506,7 +507,7 @@ void android_main(struct android_app *app)
                 __android_log_print(ANDROID_LOG_INFO, appTag, "argv[%i] = %s", i, argv[i]);
 
             // sleep to allow attaching debugger
-            sleep(10);
+            //sleep(10);
 
             // Call into common code
             int err = vkreplay_main(argc, argv, app->window);

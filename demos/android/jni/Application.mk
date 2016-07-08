@@ -18,5 +18,5 @@ APP_PLATFORM := android-23
 APP_STL := gnustl_static
 APP_MODULES := Tri Cube
 APP_CPPFLAGS += -std=c++11 -fexceptions -Wall -Werror -Wextra -Wno-unused-parameter -DVK_NO_PROTOTYES -DGLM_FORCE_RADIANS
-APP_CFLAGS += -Wall -Werror -Wextra -Wno-unused-parameter -DVK_NO_PROTOTYES -DGLM_FORCE_RADIANS
+APP_CFLAGS += -Wall -Werror -Wextra -Wno-unused-parameter -DVK_NO_PROTOTYES -DGLM_FORCE_RADIANS -g -O0
 NDK_TOOLCHAIN_VERSION := clang

@@ -300,6 +300,8 @@ class VkLayerTest : public VkRenderFramework {
          */
         // Use Threading layer first to protect others from
         // ThreadCommandBufferCollision test
+        instance_layer_names.push_back("VK_LAYER_LUNARG_vktrace");
+        instance_layer_names.push_back("VK_LAYER_LUNARG_api_dump");
         instance_layer_names.push_back("VK_LAYER_GOOGLE_threading");
         instance_layer_names.push_back("VK_LAYER_LUNARG_parameter_validation");
         instance_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");
@@ -308,6 +310,8 @@ class VkLayerTest : public VkRenderFramework {
         instance_layer_names.push_back("VK_LAYER_LUNARG_swapchain");
         instance_layer_names.push_back("VK_LAYER_GOOGLE_unique_objects");
 
+        device_layer_names.push_back("VK_LAYER_LUNARG_vktrace");
+        device_layer_names.push_back("VK_LAYER_LUNARG_api_dump");
         device_layer_names.push_back("VK_LAYER_GOOGLE_threading");
         device_layer_names.push_back("VK_LAYER_LUNARG_parameter_validation");
         device_layer_names.push_back("VK_LAYER_LUNARG_object_tracker");

@@ -18,6 +18,7 @@ set(SRC_LIST
     vktraceviewer_vk_settings.cpp
     vktraceviewer_vk_qcontroller.cpp
     vktraceviewer_vk_qfile_model.cpp
+    vktraceviewer_vk_qgroupframesproxymodel.cpp
     ${SRC_DIR}/vktrace_viewer/vktraceviewer_QReplayWorker.cpp
     ${SRC_DIR}/vktrace_replay/vkreplay_factory.cpp
 )
@@ -64,7 +65,7 @@ QT5_WRAP_CPP(QT_GEN_HEADER_MOC_LIST ${UI_HEADER_LIST})
 
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/../../../../")
 
-add_library(${PROJECT_NAME} SHARED ${SRC_LIST} ${HDR_LIST}
+add_library(${PROJECT_NAME} STATIC ${SRC_LIST} ${HDR_LIST}
     ${QT_GEN_HEADER_MOC_LIST}
 )
 

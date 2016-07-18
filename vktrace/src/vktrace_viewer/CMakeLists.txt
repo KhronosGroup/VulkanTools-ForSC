@@ -122,6 +122,7 @@ target_link_libraries(${PROJECT_NAME}
     Qt5::Svg
     vktrace_common
     vulkan_replay
+    vktraceviewer_vk
     ${CMAKE_DL_LIBS}
     ${X11_X11_LIB}
 )

@@ -25,12 +25,12 @@ lunarg_api_dump.no_addr = FALSE
 #    =============
 #    <LayerIdentifer>.file : Setting this to TRUE indicates that output
 #    should be written to file instead of STDOUT
-lunarg_api_dump.file = FALSE
+lunarg_api_dump.file = TRUE
 #    LOG_FILENAME:
 #    =============
 #    <LayerIdentifer>.log_filename : Specifies the file to dump to when
 #    "file = TRUE".  The default is "vk_apidump.txt"
-lunarg_api_dump.log_filename = stdout
+lunarg_api_dump.log_filename = /sdcard/Android/vk_apidump.txt
 #    FLUSH:
 #    =============
 #    <LayerIdentifier>.flush : Setting this to TRUE causes IO to be flushed after

@@ -79,7 +79,7 @@ typedef struct {
 
 #endif
 
-#if defined(PLATFORM_LINUX)
+#if defined(PLATFORM_LINUX) || defined(ANDROID)
 typedef void* HINSTANCE;
 typedef void* HWND;
 typedef VkFlags VkWin32SurfaceCreateFlagsKHR;

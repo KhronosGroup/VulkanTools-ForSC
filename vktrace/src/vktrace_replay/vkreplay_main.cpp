@@ -185,7 +185,7 @@ void loggingCallback(VktraceLogLevel level, const char* pMessage)
 #endif
 }
 
-int vkreplay_main(int argc, char **argv)
+int vkreplay_main(int argc, char **argv, ANativeWindow* window)
 {
     int err = 0;
     vktrace_SettingGroup* pAllSettings = NULL;
@@ -290,7 +290,7 @@ int vkreplay_main(int argc, char **argv)
 
     // Create window. Initial size is 100x100. It will later get resized to the size
     // used by the traced app. The resize will happen  during playback of swapchain functions.
-    ReplayDisplay disp(100, 100, 0/*, false*/);
+    ReplayDisplay disp(100, 100, 0, window/*, false*/);
 
     for (int i = 0; i < VKTRACE_MAX_TRACER_ID_ARRAY_SIZE; i++)
     {
@@ -502,7 +502,7 @@ void android_main(struct android_app *app)
 	    sleep(10);
 
 	    // Call into common code
-            int err = vkreplay_main(argc, argv);
+            int err = vkreplay_main(argc, argv, app->window);
             __android_log_print(ANDROID_LOG_DEBUG, appTag, "vkreplay_main returned %i", err);
 
             ANativeActivity_finish(app->activity);

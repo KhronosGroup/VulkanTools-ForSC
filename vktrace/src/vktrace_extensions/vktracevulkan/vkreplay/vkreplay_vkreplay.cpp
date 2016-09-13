@@ -203,6 +203,13 @@ VkResult vkReplay::manually_replay_vkCreateInstance(packet_vkCreateInstance* pPa
 #if !defined(ANDROID)
         extension_names.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
         outlist.push_back("VK_KHR_win32_surface");
+#else
+        extension_names.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
+        outlist.push_back("VK_KHR_win32_surface");
+        outlist.push_back("VK_KHR_xlib_surface");
+        outlist.push_back("VK_KHR_xcb_surface");
+        outlist.push_back("VK_KHR_wayland_surface");
+        outlist.push_back("VK_KHR_mir_surface");
 #endif //ANDROID
 #else
         extension_names.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
@@ -2374,7 +2381,7 @@ VkResult vkReplay::manually_replay_vkQueuePresentKHR(packet_vkQueuePresentKHR* p
 
         assert(pPacket->pPresentInfo->swapchainCount == 1 && "Multiple swapchain images not supported yet");
         uint32_t remappedImageIndex = m_objMapper.remap_pImageIndex(*pPacket->pPresentInfo->pImageIndices);
-        if (remappedImageIndex == -1)
+        if (remappedImageIndex == UINT32_MAX)
         {
             vktrace_LogError("Skipping vkQueuePresentKHR() due to invalid remapped pImageIndices.");
             return VK_ERROR_VALIDATION_FAILED_EXT;
@@ -2444,12 +2451,10 @@ VkResult vkReplay::manually_replay_vkQueuePresentKHR(packet_vkQueuePresentKHR* p
     return replayResult;
 }
 
-// CLN HACK HACK HACK
-#if 0
 VkResult vkReplay::manually_replay_vkCreateXcbSurfaceKHR(packet_vkCreateXcbSurfaceKHR* pPacket)
 {
-    VkResult replayResult;
-    VkSurfaceKHR local_pSurface;
+    VkResult replayResult = VK_SUCCESS;
+    VkSurfaceKHR local_pSurface = VK_NULL_HANDLE;
     VkInstance remappedInstance = m_objMapper.remap_instances(pPacket->instance);
     if (remappedInstance == VK_NULL_HANDLE)
     {
@@ -2457,8 +2462,7 @@ VkResult vkReplay::manually_replay_vkCreateXcbSurfaceKHR(packet_vkCreateXcbSurfa
         return VK_ERROR_VALIDATION_FAILED_EXT;
     }
 
-#if defined(PLATFORM_LINUX)
-#if !defined(ANDROID)
+#if defined(PLATFORM_LINUX) && !defined(ANDROID)
     VkIcdSurfaceXcb *pSurf = (VkIcdSurfaceXcb *) m_display->get_surface();
     VkXcbSurfaceCreateInfoKHR createInfo;
     createInfo.sType = pPacket->pCreateInfo->sType;
@@ -2467,7 +2471,6 @@ VkResult vkReplay::manually_replay_vkCreateXcbSurfaceKHR(packet_vkCreateXcbSurfa
     createInfo.connection = pSurf->connection;
     createInfo.window = pSurf->window;
     replayResult = m_vkFuncs.real_vkCreateXcbSurfaceKHR(remappedInstance, &createInfo, pPacket->pAllocator, &local_pSurface);
-#endif // ANDROID
 #elif defined WIN32
     VkIcdSurfaceWin32 *pSurf = (VkIcdSurfaceWin32 *) m_display->get_surface();
     VkWin32SurfaceCreateInfoKHR createInfo;
@@ -2479,7 +2482,7 @@ VkResult vkReplay::manually_replay_vkCreateXcbSurfaceKHR(packet_vkCreateXcbSurfa
     replayResult = m_vkFuncs.real_vkCreateWin32SurfaceKHR(remappedInstance, &createInfo, pPacket->pAllocator, &local_pSurface);
 #else
     vktrace_LogError("manually_replay_vkCreateXcbSurfaceKHR not implemented on this vkreplay platform");
-    replayResult = VK_FEATURE_NOT_PRESENT;
+    replayResult = VK_ERROR_FEATURE_NOT_PRESENT;
 #endif
 
     if (replayResult == VK_SUCCESS) {
@@ -2490,16 +2493,15 @@ VkResult vkReplay::manually_replay_vkCreateXcbSurfaceKHR(packet_vkCreateXcbSurfa
 
 VkResult vkReplay::manually_replay_vkCreateXlibSurfaceKHR(packet_vkCreateXlibSurfaceKHR* pPacket)
 {
-    VkResult replayResult;
-    VkSurfaceKHR local_pSurface;
+    VkResult replayResult = VK_SUCCESS;
+    VkSurfaceKHR local_pSurface = VK_NULL_HANDLE;
     VkInstance remappedinstance = m_objMapper.remap_instances(pPacket->instance);
 
     if (pPacket->instance != VK_NULL_HANDLE && remappedinstance == VK_NULL_HANDLE) {
         return VK_ERROR_VALIDATION_FAILED_EXT;
     }
 
-#if defined(PLATFORM_LINUX)
-#if !defined(ANDROID)
+#if defined(PLATFORM_LINUX) && !defined(ANDROID)
     VkIcdSurfaceXlib *pSurf = (VkIcdSurfaceXlib *) m_display->get_surface();
     VkXlibSurfaceCreateInfoKHR createInfo;
     createInfo.sType = pPacket->pCreateInfo->sType;
@@ -2508,7 +2510,6 @@ VkResult vkReplay::manually_replay_vkCreateXlibSurfaceKHR(packet_vkCreateXlibSur
     createInfo.dpy = pSurf->dpy;
     createInfo.window = pSurf->window;
     replayResult = m_vkFuncs.real_vkCreateXlibSurfaceKHR(remappedinstance, &createInfo, pPacket->pAllocator, &local_pSurface);
-#endif // ANDROID
 #elif defined WIN32
     VkIcdSurfaceWin32 *pSurf = (VkIcdSurfaceWin32 *) m_display->get_surface();
     VkWin32SurfaceCreateInfoKHR createInfo;
@@ -2520,7 +2521,7 @@ VkResult vkReplay::manually_replay_vkCreateXlibSurfaceKHR(packet_vkCreateXlibSur
     replayResult = m_vkFuncs.real_vkCreateWin32SurfaceKHR(remappedinstance, &createInfo, pPacket->pAllocator, &local_pSurface);
 #else
     vktrace_LogError("manually_replay_vkCreateXlibSurfaceKHR not implemented on this playback platform");
-    replayResult = VK_FEATURE_NOT_PRESENT;
+    replayResult = VK_ERROR_FEATURE_NOT_PRESENT;
 #endif
     if (replayResult == VK_SUCCESS) {
         m_objMapper.add_to_surfacekhrs_map(*(pPacket->pSurface), local_pSurface);
@@ -2531,8 +2532,8 @@ VkResult vkReplay::manually_replay_vkCreateXlibSurfaceKHR(packet_vkCreateXlibSur
 VkResult vkReplay::manually_replay_vkCreateWin32SurfaceKHR(packet_vkCreateWin32SurfaceKHR* pPacket)
 {
 
-    VkResult replayResult;
-    VkSurfaceKHR local_pSurface;
+    VkResult replayResult = VK_SUCCESS;
+    VkSurfaceKHR local_pSurface = VK_NULL_HANDLE;
     VkInstance remappedInstance = m_objMapper.remap_instances(pPacket->instance);
     if (remappedInstance == VK_NULL_HANDLE)
     {
@@ -2549,8 +2550,7 @@ VkResult vkReplay::manually_replay_vkCreateWin32SurfaceKHR(packet_vkCreateWin32S
     createInfo.hinstance = pSurf->hinstance;
     createInfo.hwnd = pSurf->hwnd;
     replayResult = m_vkFuncs.real_vkCreateWin32SurfaceKHR(remappedInstance, &createInfo, pPacket->pAllocator, &local_pSurface);
-#elif defined(PLATFORM_LINUX)
-#if !defined(ANDROID)
+#elif defined(PLATFORM_LINUX) && !defined(ANDROID)
     VkIcdSurfaceXcb *pSurf = (VkIcdSurfaceXcb *) m_display->get_surface();
     VkXcbSurfaceCreateInfoKHR createInfo;
     createInfo.sType = pPacket->pCreateInfo->sType;
@@ -2559,22 +2559,20 @@ VkResult vkReplay::manually_replay_vkCreateWin32SurfaceKHR(packet_vkCreateWin32S
     createInfo.connection = pSurf->connection;
     createInfo.window = pSurf->window;
     replayResult = m_vkFuncs.real_vkCreateXcbSurfaceKHR(remappedInstance, &createInfo, pPacket->pAllocator, &local_pSurface);
-#endif // ANDROID
 #else
     vktrace_LogError("manually_replay_vkCreateWin32SurfaceKHR not implemented on this playback platform");
-    replayResult = VK_FEATURE_NOT_PRESENT;
+    replayResult = VK_ERROR_FEATURE_NOT_PRESENT;
 #endif
     if (replayResult == VK_SUCCESS) {
         m_objMapper.add_to_surfacekhrs_map(*(pPacket->pSurface), local_pSurface);
     }
     return replayResult;
 }
-#endif // CLN HACK HACK HACK 
 
 VkResult vkReplay::manually_replay_vkCreateAndroidSurfaceKHR(packet_vkCreateAndroidSurfaceKHR* pPacket)
 {
     VkResult replayResult = VK_SUCCESS;
-    VkSurfaceKHR local_pSurface;
+    VkSurfaceKHR local_pSurface = VK_NULL_HANDLE;
     VkInstance remappedInstance = m_objMapper.remap_instances(pPacket->instance);
     if (remappedInstance == VK_NULL_HANDLE)
     {
@@ -2612,7 +2610,7 @@ VkResult vkReplay::manually_replay_vkCreateAndroidSurfaceKHR(packet_vkCreateAndr
 #endif // ANDROID
 #else
     vktrace_LogError("manually_replay_vkCreateAndroidSurfaceKHR not implemented on this playback platform");
-    replayResult = VK_FEATURE_NOT_PRESENT;
+    replayResult = VK_ERROR_FEATURE_NOT_PRESENT;
 #endif
     if (replayResult == VK_SUCCESS) {
         m_objMapper.add_to_surfacekhrs_map(*(pPacket->pSurface), local_pSurface);
@@ -2711,8 +2709,6 @@ VkResult vkReplay::manually_replay_vkAllocateCommandBuffers(packet_vkAllocateCom
     return replayResult;
 }
 
-// CLN HACK HACK HACK
-#if 0
 VkBool32 vkReplay::manually_replay_vkGetPhysicalDeviceXcbPresentationSupportKHR(packet_vkGetPhysicalDeviceXcbPresentationSupportKHR* pPacket)
 {
     VkPhysicalDevice remappedphysicalDevice = m_objMapper.remap_physicaldevices(pPacket->physicalDevice);
@@ -2722,12 +2718,10 @@ VkBool32 vkReplay::manually_replay_vkGetPhysicalDeviceXcbPresentationSupportKHR(
         return VK_FALSE;
     }
 
-#if defined(PLATFORM_LINUX)
-#if !defined(ANDROID)
+#if defined(PLATFORM_LINUX) && !defined(ANDROID)
     VkIcdSurfaceXcb *pSurf = (VkIcdSurfaceXcb *) m_display->get_surface();
     m_display->get_window_handle();
     return (m_vkFuncs.real_vkGetPhysicalDeviceXcbPresentationSupportKHR(remappedphysicalDevice, pPacket->queueFamilyIndex, pSurf->connection, m_display->get_screen_handle()->root_visual));
-#endif // ANDROID
 #elif defined WIN32
     return (m_vkFuncs.real_vkGetPhysicalDeviceWin32PresentationSupportKHR(remappedphysicalDevice, pPacket->queueFamilyIndex));
 #else
@@ -2745,12 +2739,10 @@ VkBool32 vkReplay::manually_replay_vkGetPhysicalDeviceXlibPresentationSupportKHR
         return VK_FALSE;
     }
 
-#if defined(PLATFORM_LINUX)
-#if !defined(ANDROID)
+#if defined(PLATFORM_LINUX) && !defined(ANDROID)
     VkIcdSurfaceXlib *pSurf = (VkIcdSurfaceXlib *) m_display->get_surface();
     m_display->get_window_handle();
     return (m_vkFuncs.real_vkGetPhysicalDeviceXlibPresentationSupportKHR(remappedphysicalDevice, pPacket->queueFamilyIndex, pSurf->dpy, m_display->get_screen_handle()->root_visual));
-#endif // ANDROID
 #elif defined WIN32
     return (m_vkFuncs.real_vkGetPhysicalDeviceWin32PresentationSupportKHR(remappedphysicalDevice, pPacket->queueFamilyIndex));
 #else
@@ -2769,16 +2761,13 @@ VkBool32 vkReplay::manually_replay_vkGetPhysicalDeviceWin32PresentationSupportKH
 
 #if defined WIN32
     return (m_vkFuncs.real_vkGetPhysicalDeviceWin32PresentationSupportKHR(remappedphysicalDevice, pPacket->queueFamilyIndex));
-#elif defined(PLATFORM_LINUX)
-#if !defined(ANDROID)
+#elif defined(PLATFORM_LINUX) && !defined(ANDROID)
     VkIcdSurfaceXcb *pSurf = (VkIcdSurfaceXcb *) m_display->get_surface();
     m_display->get_window_handle();
     return (m_vkFuncs.real_vkGetPhysicalDeviceXcbPresentationSupportKHR(remappedphysicalDevice, pPacket->queueFamilyIndex, pSurf->connection, m_display->get_screen_handle()->root_visual));
-#endif // ANDROID
 #else
     vktrace_LogError("manually_replay_vkGetPhysicalDeviceWin32PresentationSupportKHR not implemented on this playback platform");
     return VK_FALSE;
 #endif
 }
-#endif // CLN HACK HACK HACK
 

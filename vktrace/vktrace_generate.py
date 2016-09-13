@@ -37,11 +37,7 @@ import vulkan
 headers = []
 objects = []
 protos = []
-proto_exclusions = [ # CLN HACK HACK HACK
-		     # although preserve removal of Android
-		     'CreateWin32SurfaceKHR', 'CreateXcbSurfaceKHR', 'CreateXlibSurfaceKHR',
-                     'GetPhysicalDeviceWin32PresentationSupportKHR', 'GetPhysicalDeviceXcbPresentationSupportKHR', 'GetPhysicalDeviceXlibPresentationSupportKHR',
-                     'CreateWaylandSurfaceKHR', 'CreateMirSurfaceKHR',
+proto_exclusions = [ 'CreateWaylandSurfaceKHR', 'CreateMirSurfaceKHR',
                      'GetPhysicalDeviceWaylandPresentationSupportKHR', 'GetPhysicalDeviceMirPresentationSupportKHR',
                      'GetPhysicalDeviceDisplayPropertiesKHR', 'GetPhysicalDeviceDisplayPlanePropertiesKHR',
                      'GetDisplayPlaneSupportedDisplaysKHR', 'GetDisplayModePropertiesKHR',
@@ -183,6 +179,8 @@ class Subcommand(object):
             if '*' in vk_type:
                 return ("%u",  "(%s == NULL) ? 0 : *(%s)" % (name, name), "*")
             return ("%u", name, deref)
+        if "VisualID" in vk_type:
+            return ("%\" PRIu64 \"", "(uint64_t)%s" % name, deref)
         if "VkBool32" in vk_type:
             if '*' in vk_type:
                 return ("%s",  "(*%s == VK_TRUE) ? \"VK_TRUE\" : \"VK_FALSE\"" % (name), "*")
@@ -463,22 +461,19 @@ class Subcommand(object):
                                          'GetSwapchainImagesKHR',
                                          'QueuePresentKHR',
                                          #TODO add Wayland, Mir
-					 # CLN HACK HACK HACK
-                                         #'CreateXcbSurfaceKHR',
-                                         #'CreateXlibSurfaceKHR',
-                                         #'GetPhysicalDeviceXcbPresentationSupportKHR',
-                                         #'GetPhysicalDeviceXlibPresentationSupportKHR',
-                                         #'CreateWin32SurfaceKHR',
-                                         #'GetPhysicalDeviceWin32PresentationSupportKHR',
-					 'CreateAndroidSurfaceKHR',
+                                         'CreateXcbSurfaceKHR',
+                                         'CreateXlibSurfaceKHR',
+                                         'GetPhysicalDeviceXcbPresentationSupportKHR',
+                                         'GetPhysicalDeviceXlibPresentationSupportKHR',
+                                         'CreateWin32SurfaceKHR',
+                                         'GetPhysicalDeviceWin32PresentationSupportKHR',
+                                         'CreateAndroidSurfaceKHR',
                                          ]
 
         # validate the manually_written_hooked_funcs list
         protoFuncs = [proto.name for proto in self.protos]
-        # CLN HACK HACK HACK
-	#wsi_platform_manual_funcs = ['CreateWin32SurfaceKHR', 'CreateXcbSurfaceKHR', 'CreateXlibSurfaceKHR', 'CreateAndroidSurfaceKHR',
-	#		             'GetPhysicalDeviceXcbPresentationSupportKHR','GetPhysicalDeviceXlibPresentationSupportKHR', 'GetPhysicalDeviceWin32PresentationSupportKHR']
-        wsi_platform_manual_funcs = ['CreateAndroidSurfaceKHR']
+        wsi_platform_manual_funcs = ['CreateWin32SurfaceKHR', 'CreateXcbSurfaceKHR', 'CreateXlibSurfaceKHR', 'CreateAndroidSurfaceKHR',
+                                     'GetPhysicalDeviceXcbPresentationSupportKHR','GetPhysicalDeviceXlibPresentationSupportKHR', 'GetPhysicalDeviceWin32PresentationSupportKHR']
         for func in manually_written_hooked_funcs:
             if (func not in protoFuncs) and (func not in wsi_platform_manual_funcs):
                 sys.exit("Entry '%s' in manually_written_hooked_funcs list is not in the vulkan function prototypes" % func)
@@ -1422,7 +1417,7 @@ class Subcommand(object):
         rc_body.append('    void clear_all_map_handles()\n    {')
         for var in sorted(obj_map_dict):
             rc_body.append('        %s.clear();' % var)
-        for var in additional_remap_dict.iterkeys() :
+        for var in additional_remap_dict:
             rc_body.append('        m_%s.clear();' %var)
         rc_body.append('    }\n')
         disp_obj_types = [obj for obj in vulkan.object_dispatch_list]
@@ -1468,7 +1463,7 @@ class Subcommand(object):
                 rc_body.append(self._add_to_map_decl(obj_map_dict[var], obj_map_dict[var], var))
                 rc_body.append(self._rm_from_map_decl(obj_map_dict[var], var))
                 rc_body.append(self._remap_decl(obj_map_dict[var], var))
-        for var in additional_remap_dict.iterkeys():
+        for var in additional_remap_dict:
             rc_body.append('        std::map<%s, %s> m_%s;' % (additional_remap_dict[var], additional_remap_dict[var], var))
             rc_body.append('        void add_to_%s_map(%s traceVal, %s replayVal)' % (var, additional_remap_dict[var], additional_remap_dict[var]))
             rc_body.append('        {')
@@ -1483,7 +1478,7 @@ class Subcommand(object):
             rc_body.append('        %s remap_%s(const %s& value)' % (additional_remap_dict[var], var, additional_remap_dict[var]))
             rc_body.append('        {')
             rc_body.append('            std::map<%s, %s>::const_iterator q = m_%s.find(value);' % (additional_remap_dict[var], additional_remap_dict[var], var))
-            rc_body.append('            if (q == m_%s.end()) { vktrace_LogError("Failed to remap %s."); return -1; }' % (var, var))
+            rc_body.append('            if (q == m_%s.end()) { vktrace_LogError("Failed to remap %s."); return UINT32_MAX; }' % (var, var))
             rc_body.append('            return q->second;')
             rc_body.append('        }')
 
@@ -1728,14 +1723,13 @@ class Subcommand(object):
                                  'GetPhysicalDeviceSurfacePresentModesKHR',
                                  'CreateSwapchainKHR',
                                  'GetSwapchainImagesKHR',
-				 # CLN HACK HACK HACK
-                                 #'CreateXcbSurfaceKHR',
-                                 #'CreateXlibSurfaceKHR',
-                                 #'GetPhysicalDeviceXcbPresentationSupportKHR',
-                                 #'GetPhysicalDeviceXlibPresentationSupportKHR',
-                                 #'CreateWin32SurfaceKHR',
-                                 #'GetPhysicalDeviceWin32PresentationSupportKHR',
-				 'CreateAndroidSurfaceKHR',
+                                 'CreateXcbSurfaceKHR',
+                                 'CreateXlibSurfaceKHR',
+                                 'GetPhysicalDeviceXcbPresentationSupportKHR',
+                                 'GetPhysicalDeviceXlibPresentationSupportKHR',
+                                 'CreateWin32SurfaceKHR',
+                                 'GetPhysicalDeviceWin32PresentationSupportKHR',
+                                 'CreateAndroidSurfaceKHR',
                                  #TODO Wayland, Mir, Xlib
                                  #'GetPhysicalDeviceInfo',
                                  'MapMemory',
@@ -1751,9 +1745,7 @@ class Subcommand(object):
 
         # validate the manually_replay_funcs list
         protoFuncs = [proto.name for proto in self.protos]
-	# CLN HACK HACK HACK
-        #wsi_platform_manual_funcs = ['CreateWin32SurfaceKHR', 'CreateXcbSurfaceKHR', 'CreateXlibSurfaceKHR', 'CreateAndroidSurfaceKHR']
-        wsi_platform_manual_funcs = ['CreateAndroidSurfaceKHR']
+        wsi_platform_manual_funcs = ['CreateWin32SurfaceKHR', 'CreateXcbSurfaceKHR', 'CreateXlibSurfaceKHR', 'CreateAndroidSurfaceKHR']
 
         for func in manually_replay_funcs:
             if (func not in protoFuncs) and (func not in wsi_platform_manual_funcs):

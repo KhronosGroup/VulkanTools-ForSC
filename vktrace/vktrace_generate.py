@@ -2118,6 +2118,7 @@ class VktracePacketID(Subcommand):
         header_txt.append('#include "vktrace_interconnect.h"')
         #header_txt.append('#include "vktrace_vk_vk_lunarg_debug_marker_packets.h"')
         header_txt.append('#include "vk_enum_string_helper.h"')
+        header_txt.append('#include <inttypes.h>')
         header_txt.append('#ifndef _WIN32')
         header_txt.append(' #pragma GCC diagnostic ignored "-Wwrite-strings"')
         header_txt.append('#endif')

@@ -126,6 +126,13 @@ class Subcommand(object):
             if ext.ifdef:
                 func_protos.append('#endif /* %s */' % ext.ifdef)
 
+            # LoaderLayerInterface V0
+            if proto.name in [ 'GetInstanceProcAddr', 'GetDeviceProcAddr']:
+                func_protos.append('VK_LAYER_EXPORT %s;' % proto.c_func(prefix="VK_LAYER_LUNARG_vktrace", attr="VKAPI"))
+            if proto.name in [ 'EnumerateInstanceLayerProperties', 'EnumerateInstanceExtensionProperties',
+                               'EnumerateDeviceLayerProperties', 'EnumerateDeviceExtensionProperties' ]:
+                func_protos.append('VK_LAYER_EXPORT %s;' % proto.c_func(prefix="vk", attr="VKAPI"))
+
         func_protos.append('#ifdef __cplusplus')
         func_protos.append('}')
         func_protos.append('#endif')
@@ -143,6 +150,13 @@ class Subcommand(object):
                         func_protos.append('VKTRACER_EXPORT %s;' % proto.c_func(prefix="__HOOKED_vk", attr="VKAPI"))
                 if ext.ifdef:
                     func_protos.append('#endif /* %s */' % ext.ifdef)
+
+                    # LoaderLayerInterface V0
+                    if proto.name in [ 'GetInstanceProcAddr', 'GetDeviceProcAddr']:
+                        func_protos.append('VK_LAYER_EXPORT %s;' % proto.c_func(prefix="VK_LAYER_LUNARG_vktrace", attr="VKAPI"))
+                    if proto.name in [ 'EnumerateInstanceLayerProperties', 'EnumerateInstanceExtensionProperties',
+                                       'EnumerateDeviceLayerProperties', 'EnumerateDeviceExtensionProperties' ]:
+                        func_protos.append('VK_LAYER_EXPORT %s;' % proto.c_func(prefix="vk", attr="VKAPI"))
 
         return "\n".join(func_protos)
 

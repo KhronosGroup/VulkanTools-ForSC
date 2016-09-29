@@ -330,12 +330,18 @@ int vkreplay_main(int argc, char **argv, vktrace_window_handle window = 0)
         replayer[i] = NULL;
     }
 
+// CLN HACK HACK HACK
+vktrace_LogAlways("fileHeader.tracer_count = %u", fileHeader.tracer_count);
+
     for (int i = 0; i < fileHeader.tracer_count; i++)
     {
         uint8_t tracerId = fileHeader.tracer_id_array[i].id;
         tidApi = tracerId;
 
         const VKTRACE_TRACER_REPLAYER_INFO* pReplayerInfo = &(gs_tracerReplayerInfo[tracerId]);
+
+// CLN HACK HACK HACK
+vktrace_LogAlways("tidApi = %u", tidApi);
 
         if (pReplayerInfo->tracerId != tracerId)
         {

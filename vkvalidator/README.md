@@ -1,6 +1,6 @@
-#![Vulkan Validaotr](images/vkvalidator_title.jpg)
-This document is an overview of how to use the LunarG Vulkan Validator.
-The Vulkan Valiidator is a tool that can:
+#![LunarG's Vulkan Installation Analyzer (VIA)](images/lunarg_via_title.png)
+This document is an overview of how to use the LunarG Vulkan Installation Analyzer (VIA).
+VIA is a tool that can:
  1. Determine the state of Vulkan components on your system
  2. Validate that your Vulkan Loader and drivers are installed properly
  3. Capture your system state in a a form that can be used as an attachment when submitting bugs
@@ -10,7 +10,7 @@ The Vulkan Valiidator is a tool that can:
 <BR />
 
 ## Building
-The Vulkan Validator is part of the LunarG [VulkanTools](https://github.com/LunarG/VulkanTools) GitHub respository.
+VIA is part of the LunarG [VulkanTools](https://github.com/LunarG/VulkanTools) GitHub respository.
 Since it is one of many tools in this repository, it is built with all the other
 tools by following the instructions in the [BuilidVT.md](https://github.com/LunarG/VulkanTools/blob/master/BUILDVT.md) file at the top of the
 source tree.
@@ -18,13 +18,13 @@ source tree.
 <BR />
 
 ## Running
-To run the Vulkan Validator, simply call the executable.
+To run VIA, simply call the executable.
 
-    vkvalidator
+   lunarg_via
 
 This will output two things:
  - A command-line ouptut indicating the overall status
- - An HTML file (called vkvalidator.html) containing the details which will be output to one of two locations:
+ - An HTML file (called lunarg_via.html) containing the details which will be output to one of two locations:
   1. If the current directory is writeable, the HTML will be placed in that location.
   2. Otherwise, it will be saved to your home folder.
 
@@ -40,7 +40,7 @@ The available command-line arguments are:
 The --unique_output argument, if provided, will cause the output html to be generated with a date/time suffix.  This will allow you to perform
 multiple state captures on your system without accidentally erasing previous results.  The new file has the following format:
 
-_vkvalidator_YYYY_MM_DD_HH_MM.html_
+_lunarg_via_YYYY_MM_DD_HH_MM.html_
 
 Where each component stands for the numeric values for year (YYYY), month (MM), day (DD), hour (HH), and minute (MM).
 
@@ -51,13 +51,13 @@ Where each component stands for the numeric values for year (YYYY), month (MM), 
 #### "SUCCESS: Validation completed properly"
 
 ##### Problem:
-The LunarG Vulkan Validator could detect no problems with your setup.
+LunarG's VIA could detect no problems with your setup.
 
 ##### Possible Reason:
 Your system is likely setup properly.  If you have trouble running Vulkan from another location, it could be that your environment variables aren't setup properly.
 
 ##### Next Step:
-Re-run Vulkan Validator from the location your Vulkan application/game is supposed to run.
+Re-run VIA from the location your Vulkan application/game is supposed to run.
 
 
 #### "ERROR: Failed to find Vulkan Driver JSON in registry"

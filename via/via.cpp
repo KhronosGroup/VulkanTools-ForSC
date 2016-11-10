@@ -125,15 +125,15 @@ int main(int argc, char **argv) {
                 if (0 == strcmp("--unique_output", argv[iii])) {
                     generate_unique_file = true;
                 } else {
-                    std::cout << "Usage of vkvalidator.exe:" << std::endl
-                              << "    vkvalidator.exe [--unique_output]"
+                    std::cout << "Usage of via.exe:" << std::endl
+                              << "    via.exe [--unique_output]"
                               << std::endl
                               << "          [--unique_output] Optional "
                                  "parameter to generate a unique html"
                               << std::endl
                               << "                            output file"
                                  "in the form of "
-                                 "\'vkvalidator_YYYY_MM_DD_HH_MM.html\'"
+                                 "\'via_YYYY_MM_DD_HH_MM.html\'"
                               << std::endl;
                     throw(-1);
                 }
@@ -146,12 +146,12 @@ int main(int argc, char **argv) {
             time(&time_raw_format);
             ptr_time = localtime(&time_raw_format);
             if (strftime(html_file_name, MAX_STRING_LENGTH - 1,
-                         "vkvalidator_%Y_%m_%d_%H_%M.html", ptr_time) == 0) {
+                         "via_%Y_%m_%d_%H_%M.html", ptr_time) == 0) {
                 std::cerr << "Couldn't prepare formatted string" << std::endl;
                 throw(-1);
             }
         } else {
-            strncpy(html_file_name, "vkvalidator.html", MAX_STRING_LENGTH - 1);
+            strncpy(html_file_name, "via.html", MAX_STRING_LENGTH - 1);
         }
 
         // Write the output file to the current executing directory, or, if
@@ -218,7 +218,7 @@ int main(int argc, char **argv) {
         }
 #endif
 
-        StartOutput("LunarG Vulkan Validator");
+        StartOutput("LunarG VIA");
 
         PrintSystemInfo();
         PrintVulkanInfo();
@@ -288,8 +288,8 @@ void StartOutput(std::string output) {
         // their machine, while a person they share it with will see the web
         // images (or the background color).
         << "            background-image: url(\"file:///"
-        << global_items.exe_directory << "/images/lg_vulk_validator.png\"), "
-        << "url(\"https://vulkan.lunarg.com/img/lg_vulk_validator.png\"), "
+        << global_items.exe_directory << "/images/lunarg_via.png\"), "
+        << "url(\"https://vulkan.lunarg.com/img/lunarg_via.png\"), "
            "url(\"file:///"
         << global_items.exe_directory << "/images/bg-starfield.jpg\"), "
         << "url(\"https://vulkan.lunarg.com/img/bg-starfield.jpg\");"
@@ -390,10 +390,16 @@ void StartOutput(std::string output) {
         << "    <BR />" << std::endl
         << "    <BR />" << std::endl
         << "    <BR />" << std::endl
-        << "    <H1 class=\"version\"><center>" << APP_VERSION
-        << "</center></h1>" << std::endl
-        << "    <BR />" << std::endl
-        << "    <BR />" << std::endl;
+        // All the silly "&nbsp;" are to make sure the version lines up directly
+        // under the  VIA portion of the log.
+        << "    <H1 class=\"version\"><center>";
+    for (uint32_t space = 0; space < 70; space++) {
+        global_items.html_file_stream << "&nbsp;";
+    }
+    global_items.html_file_stream << APP_VERSION << "</center></h1>"
+                                  << std::endl
+                                  << "    <BR />" << std::endl
+                                  << "    <BR />" << std::endl;
 }
 
 // Close out writing to the HTML file.
@@ -2778,13 +2784,13 @@ void PrintRunTimeInfo(void) {
     if (len != -1) {
         buff[len] = '\0';
 
-        std::string runtime_dir_id = "Runtime Folder Used By VkValidator";
+        std::string runtime_dir_id = "Runtime Folder Used By via";
         snprintf(generic_string, MAX_STRING_LENGTH - 1, "ldd %s", buff);
         pfp = popen(generic_string, "r");
         if (pfp == NULL) {
             PrintBeginTableRow();
             PrintTableElement(runtime_dir_id);
-            PrintTableElement("Failed to query VkValidator library info");
+            PrintTableElement("Failed to query via library info");
             PrintTableElement("");
             PrintEndTableRow();
             failed = true;
@@ -2827,7 +2833,7 @@ void PrintRunTimeInfo(void) {
                 PrintBeginTableRow();
                 PrintTableElement(runtime_dir_id);
                 PrintTableElement(
-                    "Failed to find Vulkan SO used for vkvalidator");
+                    "Failed to find Vulkan SO used for via");
                 PrintTableElement("");
                 PrintEndTableRow();
             }
@@ -3618,9 +3624,9 @@ void PrintInstanceInfo(void) {
     memset(&app_info, 0, sizeof(VkApplicationInfo));
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app_info.pNext = NULL;
-    app_info.pApplicationName = "VkValidator";
+    app_info.pApplicationName = "via";
     app_info.applicationVersion = 1;
-    app_info.pEngineName = "VkValidator";
+    app_info.pEngineName = "via";
     app_info.engineVersion = 1;
     app_info.apiVersion = VK_API_VERSION_1_0;
 

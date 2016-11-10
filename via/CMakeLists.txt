@@ -1,7 +1,7 @@
 file(GLOB TEXTURES
-   "${PROJECT_SOURCE_DIR}/vkvalidator/images/*"
+   "${PROJECT_SOURCE_DIR}/via/images/*"
 )
-file(COPY ${TEXTURES} DESTINATION ${CMAKE_BINARY_DIR}/vkvalidator/images)
+file(COPY ${TEXTURES} DESTINATION ${CMAKE_BINARY_DIR}/via/images)
 
 
 if(WIN32)
@@ -56,9 +56,9 @@ else()
 
 endif()
 
-add_executable(vkvalidator vkvalidator.cpp ${JSONCPP_SOURCE_DIR}/jsoncpp.cpp)
-target_include_directories(vkvalidator PUBLIC ${JSONCPP_INCLUDE_DIR})
-target_link_libraries(vkvalidator ${LIBRARIES})
+add_executable(via via.cpp ${JSONCPP_SOURCE_DIR}/jsoncpp.cpp)
+target_include_directories(via PUBLIC ${JSONCPP_INCLUDE_DIR})
+target_link_libraries(via ${LIBRARIES})
 if(WIN32)
-    target_link_libraries(vkvalidator version)
+    target_link_libraries(via version)
 endif()

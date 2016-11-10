@@ -20,7 +20,12 @@ source tree.
 ## Running
 To run VIA, simply call the executable.
 
-   lunarg_via
+```
+via
+```
+
+Ideally, if you are having a problem running a particular Vulkan application, change to the directory of that application, and run VIA
+from where it is installed on your system.  That will make sure VIA sees exactly what the Vulkan application sees.
 
 This will output two things:
  - A command-line ouptut indicating the overall status
@@ -40,7 +45,7 @@ The available command-line arguments are:
 The --unique_output argument, if provided, will cause the output html to be generated with a date/time suffix.  This will allow you to perform
 multiple state captures on your system without accidentally erasing previous results.  The new file has the following format:
 
-_lunarg_via_YYYY_MM_DD_HH_MM.html_
+_via_YYYY_MM_DD_HH_MM.html_
 
 Where each component stands for the numeric values for year (YYYY), month (MM), day (DD), hour (HH), and minute (MM).
 

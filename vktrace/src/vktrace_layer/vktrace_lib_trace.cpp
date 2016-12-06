@@ -53,6 +53,7 @@ VKMemInfo g_memInfo = {0, NULL, NULL, 0};
 std::unordered_map<void *, layer_device_data *> g_deviceDataMap;
 std::unordered_map<void *, layer_instance_data *> g_instanceDataMap;
 
+static bool use_pagemap = false;
 
 layer_instance_data *mid(void *object)
 {
@@ -217,9 +218,15 @@ void getMappedDirtyPagesLinux(void)
     // Open pagefile, initialize sighAddrList semaphore, and set the SIGSEGV signal handler
     if (pmFd == -1)
     {
-        pmFd = open("/proc/self/pagemap", O_RDONLY);
-        if (pmFd < 0)
-            VKTRACE_FATAL_ERROR("Failed to open pagemap file.");
+        if (use_pagemap)
+        {
+            pmFd = open("/proc/self/pagemap", O_RDONLY);
+            if (pmFd < 0)
+                VKTRACE_FATAL_ERROR("Failed to open pagemap file.");
+        }
+    }
+
+    if (sighAddrListSem == NULL) {
 
         if (!vktrace_sem_create(&sighAddrListSem, 1))
             VKTRACE_FATAL_ERROR("Failed to create sighAddrListSem.");
@@ -251,21 +258,25 @@ void getMappedDirtyPagesLinux(void)
         if (0 != mprotect(alignedAddrStart, (size_t)(alignedAddrEnd - alignedAddrStart), PROT_READ))
             VKTRACE_FATAL_ERROR("mprotect sys call failed.");
 
-        // Read all the pagemap entries for this mapped memory allocation
-        if (pageEntries.size() < nPages)
-            pageEntries.resize(nPages);
-        pmOffset = (off_t)((uint64_t)alignedAddrStart/(uint64_t)pageSize) * 8;
-        lseek(pmFd, pmOffset, SEEK_SET);
-        readLen = read(pmFd, &pageEntries[0], 8*nPages);
-        assert(readLen==8*nPages);
-        if (readLen != 8*nPages)
-            VKTRACE_FATAL_ERROR("Failed to read from pagemap file.");
+        if (use_pagemap)
+        {
+            // Read all the pagemap entries for this mapped memory allocation
+            if (pageEntries.size() < nPages)
+                pageEntries.resize(nPages);
+
+            pmOffset = (off_t)((uint64_t)alignedAddrStart/(uint64_t)pageSize) * 8;
+            lseek(pmFd, pmOffset, SEEK_SET);
+            readLen = read(pmFd, &pageEntries[0], 8*nPages);
+            assert(readLen==8*nPages);
+            if (readLen != 8*nPages)
+                VKTRACE_FATAL_ERROR("Failed to read from pagemap file.");
+        }
 
         // Examine the dirty bits in each pagemap entry
         addr = alignedAddrStart;
         for (uint64_t i=0; i<nPages; i++)
         {
-            if ((pageEntries[i]&((uint64_t)1<<55)) != 0)
+            if (!use_pagemap || ((pageEntries[i]&((uint64_t)1<<55)) != 0))
             {
                 index = pMappedMem->getIndexOfChangedBlockByAddr(addr);
                 if (index >= 0)

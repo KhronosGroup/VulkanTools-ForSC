@@ -33,6 +33,15 @@ popd
 )
 
 #
+# build smoke-with-layers
+#
+(
+pushd ../demos/smoke/android
+./build-and-install
+popd
+)
+
+#
 # build vktrace
 #
 (

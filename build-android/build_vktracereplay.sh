@@ -11,8 +11,8 @@ fi
 #
 # build layers
 #
-./update_external_sources_android.sh
-./android-generate.sh
+#./update_external_sources_android.sh
+#./android-generate.sh
 ndk-build -j $cores
 
 #
@@ -46,7 +46,7 @@ popd
 #
 (
 pushd ..
-./update_external_sources.sh -g -s
+#./update_external_sources.sh -g -s
 mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_LOADER=Off -DBUILD_TESTS=Off -DBUILD_LAYERS=Off -DBUILD_VKTRACEVIEWER=Off -DBUILD_LAYERSVT=Off -DBUILD_DEMOS=Off -DBUILD_VKJSON=Off -DBUILD_VIA=Off -DBUILD_VKTRACE_LAYER=Off -DBUILD_VKTRACE_REPLAY=Off -DBUILD_VKTRACE=On ..

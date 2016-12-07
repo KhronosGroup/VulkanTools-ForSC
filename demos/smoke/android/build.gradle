@@ -23,7 +23,7 @@ def ndkDir = properties.getProperty('ndk.dir')
 model {
     android {
         compileSdkVersion = 23
-        buildToolsVersion = "23.0.2"
+        buildToolsVersion = "23.0.3"
 
         defaultConfig.with {
             applicationId = "com.example.Smoke"

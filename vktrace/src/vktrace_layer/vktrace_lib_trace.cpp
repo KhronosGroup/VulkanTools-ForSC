@@ -228,6 +228,9 @@ void getMappedDirtyPagesLinux(void)
 
     if (sighAddrListSem == NULL) {
 
+        // DEBUG
+        vktrace_LogAlways("====== setting up sigaction ======");
+
         if (!vktrace_sem_create(&sighAddrListSem, 1))
             VKTRACE_FATAL_ERROR("Failed to create sighAddrListSem.");
 
@@ -278,6 +281,10 @@ void getMappedDirtyPagesLinux(void)
         {
             if (!use_pagemap || ((pageEntries[i]&((uint64_t)1<<55)) != 0))
             {
+
+                // DEBUG
+                vktrace_LogAlways("====== tracking indexes for page %i ======", i);
+
                 index = pMappedMem->getIndexOfChangedBlockByAddr(addr);
                 if (index >= 0)
                     pMappedMem->setMappedBlockChanged(index, true, BLOCK_FLAG_ARRAY_CHANGED);

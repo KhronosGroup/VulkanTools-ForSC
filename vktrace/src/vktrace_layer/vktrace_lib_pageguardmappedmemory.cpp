@@ -27,6 +27,7 @@
 
 #if defined(PLATFORM_LINUX)
 extern void getMappedDirtyPagesLinux(void);
+extern void getMappedDirtyPagesAndroid(void);
 #endif
 
 VkDevice& PageGuardMappedMemory::getMappedDevice()
@@ -243,6 +244,9 @@ void PageGuardMappedMemory::resetMemoryObjectAllChangedFlagAndPageGuard()
     #if defined(PLATFORM_LINUX) && !defined(ANDROID)
     PageGuardCapture pageGuardCapture = getPageGuardControlInstance();
     pageGuardCapture.pageRefsDirtyClear();
+    #elif defined(ANDROID)
+    PageGuardCapture pageGuardCapture = getPageGuardControlInstance();
+    pageGuardCapture.resetPageStatus();
     #endif
 }
 
@@ -287,7 +291,12 @@ bool PageGuardMappedMemory::setAllPageGuardAndFlag(bool bSetPageGuard, bool bSet
     #if defined(PLATFORM_LINUX)
     if (bSetPageGuard)
     {
+        #if defined(ANDROID)
+        vktrace_LogAlways("==== calling getMappedDirtyPagesAndroid() ====");
+        getMappedDirtyPagesAndroid();
+        #else
         getMappedDirtyPagesLinux();
+        #endif
     }
     #endif
     return setSuccessfully;

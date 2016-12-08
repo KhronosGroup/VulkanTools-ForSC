@@ -45,6 +45,13 @@
 #include "vktrace_lib_pageguardcapture.h"
 #include "vktrace_lib_pageguard.h"
 
+#include <iostream>
+#include <iomanip>
+#include <unwind.h>
+#include <dlfcn.h>
+#include <sstream>
+#include <android/log.h>
+
 // declared as extern in vktrace_lib_helpers.h
 VKTRACE_CRITICAL_SECTION g_memInfoLock;
 VKMemInfo g_memInfo = {0, NULL, NULL, 0};
@@ -139,6 +146,66 @@ void *strip_create_extensions(const void *pNext)
 
 #if defined (PLATFORM_LINUX)
 
+// backtrace printing from http://stackoverflow.com/questions/8115192/android-ndk-getting-the-backtrace
+
+namespace {
+
+struct BacktraceState
+{
+    void** current;
+    void** end;
+};
+
+static _Unwind_Reason_Code unwindCallback(struct _Unwind_Context* context, void* arg)
+{
+    BacktraceState* state = static_cast<BacktraceState*>(arg);
+    uintptr_t pc = _Unwind_GetIP(context);
+    if (pc) {
+        if (state->current == state->end) {
+            return _URC_END_OF_STACK;
+        } else {
+            *state->current++ = reinterpret_cast<void*>(pc);
+        }
+    }
+    return _URC_NO_REASON;
+}
+
+}
+
+size_t captureBacktrace(void** buffer, size_t max)
+{
+    BacktraceState state = {buffer, buffer + max};
+    _Unwind_Backtrace(unwindCallback, &state);
+
+    return state.current - buffer;
+}
+
+void dumpBacktrace(std::ostream& os, void** buffer, size_t count)
+{
+    for (size_t idx = 0; idx < count; ++idx) {
+        const void* addr = buffer[idx];
+        const char* symbol = "";
+
+        Dl_info info;
+        if (dladdr(addr, &info) && info.dli_sname) {
+            symbol = info.dli_sname;
+        }
+
+        os << "  #" << std::setw(2) << idx << ": " << addr << "  " << symbol << "\n";
+    }
+}
+
+void backtraceToLogcat()
+{
+    const size_t max = 30;
+    void* buffer[max];
+    std::ostringstream oss;
+
+    dumpBacktrace(oss, buffer, captureBacktrace(buffer, max));
+
+    __android_log_print(ANDROID_LOG_INFO, "vktrace", "%s", oss.str().c_str());
+}
+
 // When quering dirty pages from /proc/self/pagemap, there is a
 // small window between the reading of this file and when the dirty bits
 // are cleared in which some other thread might modify mapped memory.
@@ -153,6 +220,7 @@ static vktrace_sem_id sighAddrListSem = NULL;
 static void segvHandler(int sig, siginfo_t *si, void *ununsed)
 {
     size_t pageSize = getpagesize();
+
 
     // Note: we use sem_wait and mprotect inside a signal handler.
     // This is not POSIX compliant, but works on Linux.
@@ -178,6 +246,9 @@ static void segvHandler(int sig, siginfo_t *si, void *ununsed)
 
     vktrace_sem_post(sighAddrListSem);
 
+vktrace_LogAlways("==== segvHandler called, making page writable at %llx ====", (uint64_t)si->si_addr & ~(pageSize-1));
+backtraceToLogcat();
+
     // Change protection of this page to allow the write to proceed
     if (0 != mprotect((void *)((uint64_t)si->si_addr & ~(pageSize-1)), pageSize, PROT_READ|PROT_WRITE))
         // If we're calling VKTRACE_FATAL_ERROR here, there's a bug in the trace layer.
@@ -194,6 +265,7 @@ static void segvHandler(int sig, siginfo_t *si, void *ununsed)
 // in which mapped memory is written to between when we read the dirty bits
 // from /proc/self/pagemap dirty and clear the dirty bits.
 
+#if !defined(ANDROID)
 void getMappedDirtyPagesLinux(void)
 {
     LPPageGuardMappedMemory pMappedMem;
@@ -267,7 +339,6 @@ void getMappedDirtyPagesLinux(void)
         {
             if ((pageEntries[i]&((uint64_t)1<<55)) != 0)
             {
-
                 index = pMappedMem->getIndexOfChangedBlockByAddr(addr);
                 if (index >= 0)
                     pMappedMem->setMappedBlockChanged(index, true, BLOCK_FLAG_ARRAY_CHANGED);
@@ -277,9 +348,7 @@ void getMappedDirtyPagesLinux(void)
     }
 
     // Clear all dirty bits for this process
-#if !defined(ANDROID)
     getPageGuardControlInstance().pageRefsDirtyClear();
-#endif
 
     // Re-enable write permission for all mapped memory
     for (std::unordered_map< VkDeviceMemory, PageGuardMappedMemory >::iterator it = getPageGuardControlInstance().getMapMemory().begin();
@@ -316,22 +385,41 @@ void getMappedDirtyPagesLinux(void)
     }
     vktrace_sem_post(sighAddrListSem);
 }
+#endif // ANDROID
 #endif
 
-void getMappedDirtyPagesAndroid(void)
+void getMappedDirtyPagesAndroid()
 {
     LPPageGuardMappedMemory pMappedMem;
     PBYTE addr;
     int64_t index;
 
-    vktrace_LogAlways("==== inside getMappedDirtyPagesAndroid() ====");
+    vktrace_LogAlways("==== getMappedDirtyPagesAndroid() ====");
 
     // If pageguard isn't enabled, we don't need to do anythhing
     if (!getPageGuardEnableFlag())
         return;
 
+    if (sighAddrListSem == NULL) {
+        if (!vktrace_sem_create(&sighAddrListSem, 1))
+            VKTRACE_FATAL_ERROR("Failed to create sighAddrListSem.");
+        vktrace_LogAlways("==== setting up sigaction ====");
+        struct sigaction sigAction;
+        sigAction.sa_sigaction = segvHandler;
+        sigfillset(&sigAction.sa_mask);
+        sigAction.sa_flags = SA_SIGINFO;
+        if (0 != sigaction(SIGSEGV, &sigAction, NULL))
+            VKTRACE_FATAL_ERROR("sigaction sys call failed.");
+    }
+
     // Loop through addresses that caused a segv and mark those pages dirty
     vktrace_sem_wait(sighAddrListSem);
+
+    vktrace_LogAlways("==== getMappedDirtyPagesAndroid tracking %i entries ====", sighAddrList.size());
+
+    if (1 == sighAddrList.size())
+        vktrace_LogAlways("==== single addr %llx ====", (PBYTE)sighAddrList.front());
+
     while (!sighAddrList.empty())
     {
         addr = (PBYTE)sighAddrList.front();
@@ -348,7 +436,11 @@ void getMappedDirtyPagesAndroid(void)
         }
         sighAddrList.pop_front();
     }
+
     vktrace_sem_post(sighAddrListSem);
+
+    // Set every page back to non-writable 
+    getPageGuardControlInstance().resetPageStatus();
 }
 
 
@@ -411,51 +503,6 @@ VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkMapMemory(
     pageguardExit();
 #endif
 
-#if defined(ANDROID)
-    // DEBUG
-    vktrace_LogAlways("====== setting up sigaction in vkMap ======");
-
-    // Mark all pages on non-writeable at map time
-    if (sighAddrListSem == NULL) {
-        if (!vktrace_sem_create(&sighAddrListSem, 1))
-            VKTRACE_FATAL_ERROR("Failed to create sighAddrListSem.");
-        struct sigaction sigAction;
-        sigAction.sa_sigaction = segvHandler;
-        sigfillset(&sigAction.sa_mask);
-        sigAction.sa_flags = SA_SIGINFO;
-        if (0 != sigaction(SIGSEGV, &sigAction, NULL))
-            VKTRACE_FATAL_ERROR("sigaction sys call failed.");
-    }
-
-    // Iterate through all mapped memory allocations and mark them as not-writeable
-    LPPageGuardMappedMemory pMappedMem;
-    VkDeviceMemory mappedMemory;
-    VKAllocInfo *pEntry;
-    PBYTE addr, alignedAddrStart, alignedAddrEnd;
-    uint64_t nPages;
-    size_t pageSize = getpagesize();
-
-    for (std::unordered_map< VkDeviceMemory, PageGuardMappedMemory >::iterator it = getPageGuardControlInstance().getMapMemory().begin();
-         it != getPageGuardControlInstance().getMapMemory().end();
-         it++)
-    {
-        pMappedMem = &(it->second);
-        mappedMemory = pMappedMem->getMappedMemory();
-        pEntry=find_mem_info_entry(mappedMemory);
-        addr=pEntry->pData;
-        alignedAddrStart = (PBYTE)((uint64_t)addr & ~(pageSize-1));
-        alignedAddrEnd = (PBYTE)(((uint64_t)addr + pEntry->rangeSize + pageSize - 1) & ~(pageSize - 1));
-        nPages = (alignedAddrEnd - alignedAddrStart) / pageSize;
-
-        // DEBUG
-        vktrace_LogAlways("====== Marking %i page(s) non-writeable ======", nPages);
-
-        // Make pages in this memory allocation non-writable so we get a SIGSEGV indicating that it is dirty
-        if (0 != mprotect(alignedAddrStart, (size_t)(alignedAddrEnd - alignedAddrStart), PROT_READ))
-            VKTRACE_FATAL_ERROR("mprotect sys call failed.");
-    }
-
-#endif
 
     pPacket = interpret_body_as_vkMapMemory(pHeader);
     pPacket->device = device;
@@ -465,13 +512,30 @@ VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkMapMemory(
     pPacket->flags = flags;
     if (ppData != NULL)
     {
-        vktrace_LogAlways("==== vkMapMemory ppData size %i ====");
         vktrace_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->ppData), sizeof(void*), *ppData);
         vktrace_finalize_buffer_address(pHeader, (void**)&(pPacket->ppData));
         add_data_to_mem_info(memory, size, offset, *ppData);
     }
     pPacket->result = result;
     FINISH_TRACE_PACKET();
+
+#if defined(ANDROID)
+    // Mark all pages on non-writable at map time
+    if (sighAddrListSem == NULL) {
+        if (!vktrace_sem_create(&sighAddrListSem, 1))
+            VKTRACE_FATAL_ERROR("Failed to create sighAddrListSem.");
+        vktrace_LogAlways("====== setting up sigaction in vkMap ======");
+        struct sigaction sigAction;
+        sigAction.sa_sigaction = segvHandler;
+        sigfillset(&sigAction.sa_mask);
+        sigAction.sa_flags = SA_SIGINFO;
+        if (0 != sigaction(SIGSEGV, &sigAction, NULL))
+            VKTRACE_FATAL_ERROR("sigaction sys call failed.");
+    }
+
+    getPageGuardControlInstance().resetPageStatus();
+#endif
+
     return result;
 }
 
@@ -493,6 +557,7 @@ VKTRACER_EXPORT VKAPI_ATTR void VKAPI_CALL __HOOKED_vkUnmapMemory(
     getMappedDirtyPagesAndroid();
 
     // Re-enable write permission for all mapped memory
+    vktrace_sem_wait(sighAddrListSem);
     for (std::unordered_map< VkDeviceMemory, PageGuardMappedMemory >::iterator it = getPageGuardControlInstance().getMapMemory().begin();
          it != getPageGuardControlInstance().getMapMemory().end();
          it++)
@@ -509,9 +574,18 @@ VKTRACER_EXPORT VKAPI_ATTR void VKAPI_CALL __HOOKED_vkUnmapMemory(
         addr=pEntry->pData;
         alignedAddrStart = (PBYTE)((uint64_t)addr & ~(pageSize-1));
         alignedAddrEnd = (PBYTE)(((uint64_t)addr + pEntry->rangeSize + pageSize - 1) & ~(pageSize-1));
+        
+        uint64_t nPages = (alignedAddrEnd - alignedAddrStart) / pageSize;
+        vktrace_LogAlways("===== vkUnmap addr %llx =====", addr);
+        vktrace_LogAlways("===== vkUnmap alignedAddrStart %llx =====", alignedAddrStart);
+        vktrace_LogAlways("===== vkUnmap alignedAddrEnd %llx =====", alignedAddrEnd);
+        vktrace_LogAlways("===== vkUnmap pageSize %llx =====", pageSize);
+        vktrace_LogAlways("===== vkUnmap Marking %i page(s) writable ======", nPages);
+
         if (0 != mprotect(alignedAddrStart, (size_t)(alignedAddrEnd - alignedAddrStart), PROT_READ|PROT_WRITE))
             VKTRACE_FATAL_ERROR("mprotect sys call failed.");
     }
+    vktrace_sem_post(sighAddrListSem);
 
 #endif
     getPageGuardControlInstance().vkUnmapMemoryPageGuardHandle(device, memory, &PageGuardMappedData, &vkFlushMappedMemoryRangesWithoutAPICall);
@@ -674,6 +748,7 @@ VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkFlushMappedMemoryRange
 #if defined (PLATFORM_LINUX) && !defined(ANDROID)
     getMappedDirtyPagesLinux();
 #elif defined(ANDROID)
+    vktrace_LogAlways("==== vkFlushMappedMemoryRanges ====");
     getMappedDirtyPagesAndroid();
 #endif
     PBYTE *ppPackageData = new PBYTE[memoryRangeCount];
@@ -1421,6 +1496,7 @@ VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkQueueSubmit(
 #if defined (PLATFORM_LINUX) && !defined(ANDROID)
     getMappedDirtyPagesLinux();
 #elif defined(ANDROID)
+    vktrace_LogAlways("==== vkQueueSubmit ====");
     getMappedDirtyPagesAndroid();
 #endif
     flushAllChangedMappedMemory(&vkFlushMappedMemoryRangesWithoutAPICall);

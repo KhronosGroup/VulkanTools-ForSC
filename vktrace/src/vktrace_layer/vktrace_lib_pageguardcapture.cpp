@@ -42,6 +42,8 @@ PageGuardCapture::PageGuardCapture()
     // kernels may require that '4' be written to it in order
     // for /proc/self/pagemap to work as we we expect it to.
     pageRefsDirtyClear();
+#elif defined(ANDROID)
+//    resetPageStatus();
 #endif
 
 }
@@ -389,4 +391,41 @@ void PageGuardCapture::pageRefsDirtyClear()
             VKTRACE_FATAL_ERROR("Write to /proc/self/clear_refs failed.");
     }
 }
+#elif defined(ANDROID)
+void PageGuardCapture::resetPageStatus()
+{
+    // Iterate through all mapped memory allocations and mark them as not-writable
+    LPPageGuardMappedMemory pMappedMem;
+    VkDeviceMemory mappedMemory;
+    VKAllocInfo *pEntry;
+    PBYTE addr, alignedAddrStart, alignedAddrEnd;
+    size_t pageSize = getpagesize();
+
+    // DEBUG
+    uint64_t nPages;
+
+    for (std::unordered_map< VkDeviceMemory, PageGuardMappedMemory >::iterator it = getPageGuardControlInstance().getMapMemory().begin();
+         it != getPageGuardControlInstance().getMapMemory().end();
+         it++)
+    {
+        pMappedMem = &(it->second);
+        mappedMemory = pMappedMem->getMappedMemory();
+        pEntry=find_mem_info_entry(mappedMemory);
+        addr=pEntry->pData;
+        alignedAddrStart = (PBYTE)((uint64_t)addr & ~(pageSize-1));
+        alignedAddrEnd = (PBYTE)(((uint64_t)addr + pEntry->rangeSize + pageSize - 1) & ~(pageSize - 1));
+
+        nPages = (alignedAddrEnd - alignedAddrStart) / pageSize;
+        vktrace_LogAlways("===== resetPageStatus addr %llx =====", addr);
+        vktrace_LogAlways("===== resetPageStatus alignedAddrStart %llx =====", alignedAddrStart);
+        vktrace_LogAlways("===== resetPageStatus alignedAddrEnd %llx =====", alignedAddrEnd);
+        vktrace_LogAlways("===== resetPageStatus pageSize %llx =====", pageSize);
+        vktrace_LogAlways("===== resetPageStatus Marking %i page(s) non-writable ======", nPages);
+
+        // Make pages in this memory allocation non-writable so we get a SIGSEGV indicating that it is dirty
+        if (0 != mprotect(alignedAddrStart, (size_t)(alignedAddrEnd - alignedAddrStart), PROT_READ))
+            VKTRACE_FATAL_ERROR("mprotect sys call failed.");
+    }
+}
+
 #endif

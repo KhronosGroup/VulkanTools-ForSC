@@ -109,6 +109,8 @@ public:
 
 #if defined(PLATFORM_LINUX) && !defined(ANDROID)
     void pageRefsDirtyClear();
+#elif defined(ANDROID)
+    void resetPageStatus();
 #endif
 
 } PageGuardCapture;

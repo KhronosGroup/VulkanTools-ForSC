@@ -409,6 +409,9 @@ done
 # halt on any errors here
 set -e
 
+# another small sleep to allow file to write
+sleep 2
+
 # grab the screenshot
 adb $serialFlag pull /sdcard/Android/$frame.ppm $package.$frame.vkreplay.ppm
 adb $serialFlag shell mv /sdcard/Android/$frame.ppm /sdcard/Android/$package.$frame.vkreplay.ppm

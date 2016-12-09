@@ -246,7 +246,7 @@ static void segvHandler(int sig, siginfo_t *si, void *ununsed)
 
     vktrace_sem_post(sighAddrListSem);
 
-vktrace_LogAlways("==== segvHandler called, making page writable at %llx ====", (uint64_t)si->si_addr & ~(pageSize-1));
+vktrace_LogAlways("==== segvHandler called, making page writable at %p ====", (void*)((uint64_t)si->si_addr & ~(pageSize-1)));
 backtraceToLogcat();
 
     // Change protection of this page to allow the write to proceed
@@ -379,7 +379,8 @@ void getMappedDirtyPagesLinux(void)
             if (index >= 0)
                 pMappedMem->setMappedBlockChanged(index, true, BLOCK_FLAG_ARRAY_CHANGED);
             else
-                VKTRACE_FATAL_ERROR("Received signal SIGSEGV on non-mapped memory.");
+                //VKTRACE_FATAL_ERROR("Received signal SIGSEGV on non-mapped memory.");
+                vktrace_LogAlways("==== Received signal SIGSEGV on non-mapped memory ====");
         }
         sighAddrList.pop_front();
     }
@@ -418,7 +419,7 @@ void getMappedDirtyPagesAndroid()
     vktrace_LogAlways("==== getMappedDirtyPagesAndroid tracking %i entries ====", sighAddrList.size());
 
     if (1 == sighAddrList.size())
-        vktrace_LogAlways("==== single addr %llx ====", (PBYTE)sighAddrList.front());
+        vktrace_LogAlways("==== single addr %x ====", (PBYTE)sighAddrList.front());
 
     while (!sighAddrList.empty())
     {
@@ -576,10 +577,10 @@ VKTRACER_EXPORT VKAPI_ATTR void VKAPI_CALL __HOOKED_vkUnmapMemory(
         alignedAddrEnd = (PBYTE)(((uint64_t)addr + pEntry->rangeSize + pageSize - 1) & ~(pageSize-1));
         
         uint64_t nPages = (alignedAddrEnd - alignedAddrStart) / pageSize;
-        vktrace_LogAlways("===== vkUnmap addr %llx =====", addr);
-        vktrace_LogAlways("===== vkUnmap alignedAddrStart %llx =====", alignedAddrStart);
-        vktrace_LogAlways("===== vkUnmap alignedAddrEnd %llx =====", alignedAddrEnd);
-        vktrace_LogAlways("===== vkUnmap pageSize %llx =====", pageSize);
+        vktrace_LogAlways("===== vkUnmap addr %x =====", addr);
+        vktrace_LogAlways("===== vkUnmap alignedAddrStart %x =====", alignedAddrStart);
+        vktrace_LogAlways("===== vkUnmap alignedAddrEnd %x =====", alignedAddrEnd);
+        vktrace_LogAlways("===== vkUnmap pageSize %i =====", pageSize);
         vktrace_LogAlways("===== vkUnmap Marking %i page(s) writable ======", nPages);
 
         if (0 != mprotect(alignedAddrStart, (size_t)(alignedAddrEnd - alignedAddrStart), PROT_READ|PROT_WRITE))

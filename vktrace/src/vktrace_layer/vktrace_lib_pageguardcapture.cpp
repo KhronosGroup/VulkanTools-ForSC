@@ -416,10 +416,10 @@ void PageGuardCapture::resetPageStatus()
         alignedAddrEnd = (PBYTE)(((uint64_t)addr + pEntry->rangeSize + pageSize - 1) & ~(pageSize - 1));
 
         nPages = (alignedAddrEnd - alignedAddrStart) / pageSize;
-        vktrace_LogAlways("===== resetPageStatus addr %llx =====", addr);
-        vktrace_LogAlways("===== resetPageStatus alignedAddrStart %llx =====", alignedAddrStart);
-        vktrace_LogAlways("===== resetPageStatus alignedAddrEnd %llx =====", alignedAddrEnd);
-        vktrace_LogAlways("===== resetPageStatus pageSize %llx =====", pageSize);
+        vktrace_LogAlways("===== resetPageStatus addr %x =====", addr);
+        vktrace_LogAlways("===== resetPageStatus alignedAddrStart %x =====", alignedAddrStart);
+        vktrace_LogAlways("===== resetPageStatus alignedAddrEnd %x =====", alignedAddrEnd);
+        vktrace_LogAlways("===== resetPageStatus pageSize %i =====", pageSize);
         vktrace_LogAlways("===== resetPageStatus Marking %i page(s) non-writable ======", nPages);
 
         // Make pages in this memory allocation non-writable so we get a SIGSEGV indicating that it is dirty

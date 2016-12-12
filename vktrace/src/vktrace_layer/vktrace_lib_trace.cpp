@@ -236,7 +236,7 @@ static void segvHandler(int sig, siginfo_t *si, void *ununsed)
         // attempt to write to the same mapped address at the same
         // time. This is a race condition that an app should avoid,
         // so we'll consider it a fatal error.
-        VKTRACE_FATAL_ERROR("SIGSEGV repeated on identical addresses.");
+        //VKTRACE_FATAL_ERROR("SIGSEGV repeated on identical addresses.");
     }
 
     // Add the addr that caused the segv to sighAddrList.
@@ -247,7 +247,7 @@ static void segvHandler(int sig, siginfo_t *si, void *ununsed)
     vktrace_sem_post(sighAddrListSem);
 
 vktrace_LogAlways("==== segvHandler called, making page writable at %p ====", (void*)((uint64_t)si->si_addr & ~(pageSize-1)));
-backtraceToLogcat();
+//backtraceToLogcat();
 
     // Change protection of this page to allow the write to proceed
     if (0 != mprotect((void *)((uint64_t)si->si_addr & ~(pageSize-1)), pageSize, PROT_READ|PROT_WRITE))
@@ -433,7 +433,8 @@ void getMappedDirtyPagesAndroid()
             if (index >= 0)
                 pMappedMem->setMappedBlockChanged(index, true, BLOCK_FLAG_ARRAY_CHANGED);
             else
-                VKTRACE_FATAL_ERROR("Received signal SIGSEGV on non-mapped memory.");
+                //VKTRACE_FATAL_ERROR("Received signal SIGSEGV on non-mapped memory.");
+                vktrace_LogAlways("==== Received signal SIGSEGV on non-mapped memory ====");
         }
         sighAddrList.pop_front();
     }

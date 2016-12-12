@@ -43,7 +43,7 @@ PageGuardCapture::PageGuardCapture()
     // for /proc/self/pagemap to work as we we expect it to.
     pageRefsDirtyClear();
 #elif defined(ANDROID)
-//    resetPageStatus();
+    resetPageStatus();
 #endif
 
 }

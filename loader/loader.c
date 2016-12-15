@@ -1492,6 +1492,8 @@ loader_scanned_icd_add(const struct loader_instance *inst,
     uint32_t interface_vers;
     VkResult res = VK_SUCCESS;
 
+printf("Loader looking for ICD file %s\n", filename); // Brainpain
+
     /* TODO implement smarter opening/closing of libraries. For now this
      * function leaves libraries open and the scanned_icd_clear closes them */
     handle = loader_platform_open_library(filename);

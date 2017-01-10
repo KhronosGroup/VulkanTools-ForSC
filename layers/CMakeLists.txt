@@ -111,13 +111,13 @@ if (WIN32)
     )
     add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
     target_link_Libraries(VkLayer_${target} VkLayer_utils)
-    add_dependencies(VkLayer_${target} generate_dispatch_table_helper generate_vk_layer_helpers generate_enum_string_helper VkLayer_utils)
+    add_dependencies(VkLayer_${target} generate_dispatch_table_helper generate_vk_layer_helpers generate_vk_helper_files VkLayer_utils)
     endmacro()
 else()
     macro(add_vk_layer target)
     add_library(VkLayer_${target} SHARED ${ARGN})
     target_link_Libraries(VkLayer_${target} VkLayer_utils)
-    add_dependencies(VkLayer_${target} generate_dispatch_table_helper generate_vk_layer_helpers generate_enum_string_helper VkLayer_utils)
+    add_dependencies(VkLayer_${target} generate_dispatch_table_helper generate_vk_layer_helpers generate_vk_helper_files VkLayer_utils)
     set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic,--exclude-libs,ALL")
     install(TARGETS VkLayer_${target} DESTINATION ${CMAKE_INSTALL_LIBDIR})
     endmacro()
@@ -141,21 +141,19 @@ else()
 endif()
 
 run_vk_helper(gen_struct_wrappers
-    vk_struct_size_helper.h
-    vk_struct_size_helper.c
     vk_safe_struct.h
     vk_safe_struct.cpp
 )
 
 set_source_files_properties(
-    vk_struct_size_helper.h
-    vk_struct_size_helper.c
     vk_safe_struct.h
     vk_safe_struct.cpp
     PROPERTIES GENERATED TRUE)
 
-add_custom_target(generate_enum_string_helper DEPENDS
+add_custom_target(generate_vk_helper_files DEPENDS
     vk_enum_string_helper.h
+    vk_struct_size_helper.h
+    vk_struct_size_helper.c
 )
 
 add_custom_target(generate_dispatch_table_helper DEPENDS
@@ -163,12 +161,12 @@ add_custom_target(generate_dispatch_table_helper DEPENDS
 )
 
 add_custom_target(generate_vk_layer_helpers DEPENDS
-    vk_struct_size_helper.h
-    vk_struct_size_helper.c
     vk_safe_struct.h
     vk_safe_struct.cpp
 )
 
+run_vk_xml_generate(helper_file_generator.py vk_struct_size_helper.h)
+run_vk_xml_generate(helper_file_generator.py vk_struct_size_helper.c)
 run_vk_xml_generate(helper_file_generator.py vk_enum_string_helper.h)
 run_vk_xml_generate(threading_generator.py thread_check.h)
 run_vk_xml_generate(parameter_validation_generator.py parameter_validation.h)

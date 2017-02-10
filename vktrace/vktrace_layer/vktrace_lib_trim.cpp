@@ -157,6 +157,15 @@ char *get_hotkey_string() {
 }
 
 #if defined(PLATFORM_LINUX)
+#if defined(ANDROID)
+
+// TODO
+enum_key_state key_state_platform_specific(char *pHotkeyString) {
+    enum_key_state KeyState = enum_key_state::Released;
+    return KeyState;
+}
+
+#else
 
 static xcb_connection_t *keyboardConnection = nullptr;
 
@@ -239,7 +248,7 @@ enum_key_state key_state_platform_specific(char *pHotkeyString) {
     }
     return KeyState;
 }
-
+#endif // ANDROID
 #elif defined(WIN32)
 
 //=========================================================================
@@ -366,13 +375,12 @@ void initialize() {
         getTraceTriggerOptionString(enum_trim_trigger::frameCounter);
     if (trimFrames != nullptr) {
         uint32_t numFrames = 0;
-        if (sscanf(trimFrames, "%llu,%lu", &g_trimStartFrame, &numFrames) ==
+        if (sscanf(trimFrames, "%" PRIu64 ",%" PRIu32 "", &g_trimStartFrame, &numFrames) ==
             2) {
             g_trimEndFrame = g_trimStartFrame + numFrames;
         } else {
-            int matches = sscanf(trimFrames, "%llu-%llu", &g_trimStartFrame,
-                                 &g_trimEndFrame);
-            assert(matches == 2);
+            assert(2 == sscanf(trimFrames, "%llu-%llu", &g_trimStartFrame,
+                               &g_trimEndFrame));
         }
 
         // make sure the start/end frames are in expected order.
@@ -487,8 +495,7 @@ uint32_t FindMemoryTypeIndex(VkDevice device, uint32_t memoryTypeBits,
 
     ObjectInfo *pInfo = get_PhysicalDevice_objectInfo(physicalDevice);
     assert(pInfo != NULL);
-    for (uint32_t i = 0; i,
-                  pInfo->ObjectInfo.PhysicalDevice
+    for (uint32_t i = 0; i < pInfo->ObjectInfo.PhysicalDevice
                              .physicalDeviceMemoryProperties.memoryTypeCount;
          i++) {
         if ((memoryTypeBits & (1 << i)) &&
@@ -870,13 +877,6 @@ void snapshot_state_tracker() {
              s_trimStateTrackerSnapshot.createdDevices.begin();
          deviceIter != s_trimStateTrackerSnapshot.createdDevices.end();
          deviceIter++) {
-        VkDevice device = static_cast<VkDevice>(deviceIter->first);
-
-        // Find or create an existing command pool
-        VkCommandPool commandPool = getCommandPoolFromDevice(device);
-
-        // Find or create an existing command buffer
-        VkCommandBuffer commandBuffer = getCommandBufferFromDevice(device);
 
         // Begin the command buffer
         VkCommandBufferBeginInfo commandBufferBeginInfo;
@@ -885,9 +885,8 @@ void snapshot_state_tracker() {
         commandBufferBeginInfo.pNext = NULL;
         commandBufferBeginInfo.pInheritanceInfo = NULL;
         commandBufferBeginInfo.flags = 0;
-        VkResult result = mdd(device)->devTable.BeginCommandBuffer(
-            commandBuffer, &commandBufferBeginInfo);
-        assert(result == VK_SUCCESS);
+        assert(VK_SUCCESS == mdd(device)->devTable.BeginCommandBuffer(
+                                  commandBuffer, &commandBufferBeginInfo));
     }
 
     // 2a) Transition all images into host-readable state.
@@ -896,7 +895,7 @@ void snapshot_state_tracker() {
          imageIter != s_trimStateTrackerSnapshot.createdImages.end();
          imageIter++) {
         VkDevice device = imageIter->second.belongsToDevice;
-        VkImage image = static_cast<VkImage>(imageIter->first);
+        VkImage image = reinterpret_cast<VkImage>(imageIter->first);
 
         if (device == VK_NULL_HANDLE) {
             // this is likely a swapchain image which we haven't associated a
@@ -1082,7 +1081,7 @@ void snapshot_state_tracker() {
          bufferIter != s_trimStateTrackerSnapshot.createdBuffers.end();
          bufferIter++) {
         VkDevice device = bufferIter->second.belongsToDevice;
-        VkBuffer buffer = static_cast<VkBuffer>(bufferIter->first);
+        VkBuffer buffer = reinterpret_cast<VkBuffer>(bufferIter->first);
 
         VkCommandBuffer commandBuffer = getCommandBufferFromDevice(device);
 
@@ -1148,8 +1147,7 @@ void snapshot_state_tracker() {
         mdd(device)->devTable.GetDeviceQueue(device, 0, 0, &queue);
         mdd(device)->devTable.QueueSubmit(queue, 1, &submitInfo,
                                           VK_NULL_HANDLE);
-        VkResult waitResult = mdd(device)->devTable.QueueWaitIdle(queue);
-        assert(waitResult == VK_SUCCESS);
+        assert(VK_SUCCESS == mdd(device)->devTable.QueueWaitIdle(queue));
     }
 
     // 4a) Map, copy, unmap each image.
@@ -1158,7 +1156,7 @@ void snapshot_state_tracker() {
          imageIter != s_trimStateTrackerSnapshot.createdImages.end();
          imageIter++) {
         VkDevice device = imageIter->second.belongsToDevice;
-        VkImage image = static_cast<VkImage>(imageIter->first);
+        VkImage image = reinterpret_cast<VkImage>(imageIter->first);
 
         if (device == VK_NULL_HANDLE) {
             // this is likely a swapchain image which we haven't associated a
@@ -1169,14 +1167,12 @@ void snapshot_state_tracker() {
         VkDeviceMemory memory = imageIter->second.ObjectInfo.Image.memory;
         VkDeviceSize offset = imageIter->second.ObjectInfo.Image.memoryOffset;
         VkDeviceSize size = imageIter->second.ObjectInfo.Image.memorySize;
-        VkMemoryMapFlags flags = 0;
 
         if (imageIter->second.ObjectInfo.Image.needsStagingBuffer) {
             // Note that the staged memory object won't be in the state tracker,
             // so we want to swap out the buffer and memory
             // that will be mapped / unmapped.
             StagingInfo staged = s_imageToStagedInfoMap[image];
-            VkBuffer buffer = staged.buffer;
             memory = staged.memory;
             offset = 0;
 
@@ -1190,7 +1186,7 @@ void snapshot_state_tracker() {
             }
         } else {
             TrimObjectInfoMap::iterator memoryIter =
-                s_trimStateTrackerSnapshot.createdDeviceMemorys.find(memory);
+                s_trimStateTrackerSnapshot.createdDeviceMemorys.find(&memory);
 
             if (memoryIter !=
                 s_trimStateTrackerSnapshot.createdDeviceMemorys.end()) {
@@ -1234,12 +1230,11 @@ void snapshot_state_tracker() {
          bufferIter != s_trimStateTrackerSnapshot.createdBuffers.end();
          bufferIter++) {
         VkDevice device = bufferIter->second.belongsToDevice;
-        VkBuffer buffer = static_cast<VkBuffer>(bufferIter->first);
+        VkBuffer buffer = reinterpret_cast<VkBuffer>(bufferIter->first);
 
         VkDeviceMemory memory = bufferIter->second.ObjectInfo.Buffer.memory;
         VkDeviceSize offset = bufferIter->second.ObjectInfo.Buffer.memoryOffset;
         VkDeviceSize size = bufferIter->second.ObjectInfo.Buffer.size;
-        VkMemoryMapFlags flags = 0;
 
         void *mappedAddress = NULL;
         VkDeviceSize mappedOffset = 0;
@@ -1255,7 +1250,7 @@ void snapshot_state_tracker() {
             offset = 0;
         } else {
             TrimObjectInfoMap::iterator memoryIter =
-                s_trimStateTrackerSnapshot.createdDeviceMemorys.find(memory);
+                s_trimStateTrackerSnapshot.createdDeviceMemorys.find(&memory);
             assert(memoryIter !=
                    s_trimStateTrackerSnapshot.createdDeviceMemorys.end());
             if (memoryIter !=
@@ -1298,8 +1293,6 @@ void snapshot_state_tracker() {
              s_trimStateTrackerSnapshot.createdDevices.begin();
          deviceIter != s_trimStateTrackerSnapshot.createdDevices.end();
          deviceIter++) {
-        VkDevice device = static_cast<VkDevice>(deviceIter->first);
-        VkCommandBuffer commandBuffer = getCommandBufferFromDevice(device);
 
         // Begin the command buffer
         VkCommandBufferBeginInfo commandBufferBeginInfo;
@@ -1308,9 +1301,8 @@ void snapshot_state_tracker() {
         commandBufferBeginInfo.pNext = NULL;
         commandBufferBeginInfo.pInheritanceInfo = NULL;
         commandBufferBeginInfo.flags = 0;
-        VkResult result = mdd(device)->devTable.BeginCommandBuffer(
-            commandBuffer, &commandBufferBeginInfo);
-        assert(result == VK_SUCCESS);
+        assert(VK_SUCCESS == mdd(device)->devTable.BeginCommandBuffer(
+            commandBuffer, &commandBufferBeginInfo));
     }
 
     // 6a) Transition all the images back to their previous state.
@@ -1319,7 +1311,7 @@ void snapshot_state_tracker() {
          imageIter != s_trimStateTrackerSnapshot.createdImages.end();
          imageIter++) {
         VkDevice device = imageIter->second.belongsToDevice;
-        VkImage image = static_cast<VkImage>(imageIter->first);
+        VkImage image = reinterpret_cast<VkImage>(imageIter->first);
 
         if (device == VK_NULL_HANDLE) {
             // this is likely a swapchain image which we haven't associated a
@@ -1361,7 +1353,7 @@ void snapshot_state_tracker() {
          bufferIter != s_trimStateTrackerSnapshot.createdBuffers.end();
          bufferIter++) {
         VkDevice device = bufferIter->second.belongsToDevice;
-        VkBuffer buffer = static_cast<VkBuffer>(bufferIter->first);
+        VkBuffer buffer = reinterpret_cast<VkBuffer>(bufferIter->first);
         VkCommandBuffer commandBuffer = getCommandBufferFromDevice(device);
 
         if (bufferIter->second.ObjectInfo.Buffer.needsStagingBuffer) {
@@ -1405,8 +1397,7 @@ void snapshot_state_tracker() {
 
         mdd(device)->devTable.QueueSubmit(queue, 1, &submitInfo,
                                           VK_NULL_HANDLE);
-        VkResult waitResult = mdd(device)->devTable.QueueWaitIdle(queue);
-        assert(waitResult == VK_SUCCESS);
+        assert(VK_SUCCESS == mdd(device)->devTable.QueueWaitIdle(queue));
     }
 
     // 8) Destroy the command pools / command buffers and fences
@@ -1442,7 +1433,7 @@ void snapshot_state_tracker() {
         if (bCurrentlyMapped) {
             VkDevice device = iter->second.belongsToDevice;
             VkDeviceMemory deviceMemory =
-                static_cast<VkDeviceMemory>(iter->first);
+                reinterpret_cast<VkDeviceMemory>(iter->first);
             VkDeviceSize offset = 0;
             VkDeviceSize size = iter->second.ObjectInfo.DeviceMemory.size;
             VkMemoryMapFlags flags = 0;
@@ -1571,7 +1562,7 @@ void remove_SurfaceKHR_object(VkSurfaceKHR var) {
 ObjectInfo *get_SurfaceKHR_objectInfo(VkSurfaceKHR var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdSurfaceKHRs.find(var);
+        s_trimGlobalStateTracker.createdSurfaceKHRs.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdSurfaceKHRs.end()) {
         pResult = &(iter->second);
@@ -1627,7 +1618,7 @@ void remove_SwapchainKHR_object(VkSwapchainKHR var) {
 ObjectInfo *get_SwapchainKHR_objectInfo(VkSwapchainKHR var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdSwapchainKHRs.find(var);
+        s_trimGlobalStateTracker.createdSwapchainKHRs.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdSwapchainKHRs.end()) {
         pResult = &(iter->second);
@@ -1655,7 +1646,7 @@ void remove_CommandPool_object(VkCommandPool var) {
 ObjectInfo *get_CommandPool_objectInfo(VkCommandPool var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdCommandPools.find(var);
+        s_trimGlobalStateTracker.createdCommandPools.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdCommandPools.end()) {
         pResult = &(iter->second);
@@ -1711,7 +1702,7 @@ void remove_DeviceMemory_object(VkDeviceMemory var) {
 ObjectInfo *get_DeviceMemory_objectInfo(VkDeviceMemory var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdDeviceMemorys.find(var);
+        s_trimGlobalStateTracker.createdDeviceMemorys.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdDeviceMemorys.end()) {
         pResult = &(iter->second);
@@ -1739,7 +1730,7 @@ void remove_ImageView_object(VkImageView var) {
 ObjectInfo *get_ImageView_objectInfo(VkImageView var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdImageViews.find(var);
+        s_trimGlobalStateTracker.createdImageViews.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdImageViews.end()) {
         pResult = &(iter->second);
@@ -1767,7 +1758,7 @@ void remove_Image_object(VkImage var) {
 ObjectInfo *get_Image_objectInfo(VkImage var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdImages.find(var);
+        s_trimGlobalStateTracker.createdImages.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdImages.end()) {
         pResult = &(iter->second);
@@ -1795,7 +1786,7 @@ void remove_BufferView_object(VkBufferView var) {
 ObjectInfo *get_BufferView_objectInfo(VkBufferView var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdBufferViews.find(var);
+        s_trimGlobalStateTracker.createdBufferViews.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdBufferViews.end()) {
         pResult = &(iter->second);
@@ -1823,7 +1814,7 @@ void remove_Buffer_object(VkBuffer var) {
 ObjectInfo *get_Buffer_objectInfo(VkBuffer var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdBuffers.find(var);
+        s_trimGlobalStateTracker.createdBuffers.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdBuffers.end()) {
         pResult = &(iter->second);
@@ -1851,7 +1842,7 @@ void remove_Sampler_object(VkSampler var) {
 ObjectInfo *get_Sampler_objectInfo(VkSampler var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdSamplers.find(var);
+        s_trimGlobalStateTracker.createdSamplers.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdSamplers.end()) {
         pResult = &(iter->second);
@@ -1879,7 +1870,7 @@ void remove_DescriptorSetLayout_object(VkDescriptorSetLayout var) {
 ObjectInfo *get_DescriptorSetLayout_objectInfo(VkDescriptorSetLayout var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdDescriptorSetLayouts.find(var);
+        s_trimGlobalStateTracker.createdDescriptorSetLayouts.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdDescriptorSetLayouts.end()) {
         pResult = &(iter->second);
@@ -1907,7 +1898,7 @@ void remove_PipelineLayout_object(VkPipelineLayout var) {
 ObjectInfo *get_PipelineLayout_objectInfo(VkPipelineLayout var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdPipelineLayouts.find(var);
+        s_trimGlobalStateTracker.createdPipelineLayouts.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdPipelineLayouts.end()) {
         pResult = &(iter->second);
@@ -1935,7 +1926,7 @@ void remove_RenderPass_object(VkRenderPass var) {
 ObjectInfo *get_RenderPass_objectInfo(VkRenderPass var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdRenderPasss.find(var);
+        s_trimGlobalStateTracker.createdRenderPasss.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdRenderPasss.end()) {
         pResult = &(iter->second);
@@ -1963,7 +1954,7 @@ void remove_ShaderModule_object(VkShaderModule var) {
 ObjectInfo *get_ShaderModule_objectInfo(VkShaderModule var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdShaderModules.find(var);
+        s_trimGlobalStateTracker.createdShaderModules.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdShaderModules.end()) {
         pResult = &(iter->second);
@@ -1990,7 +1981,7 @@ void remove_PipelineCache_object(VkPipelineCache var) {
 ObjectInfo *get_PipelineCache_objectInfo(VkPipelineCache var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdPipelineCaches.find(var);
+        s_trimGlobalStateTracker.createdPipelineCaches.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdPipelineCaches.end()) {
         pResult = &(iter->second);
@@ -2018,7 +2009,7 @@ void remove_DescriptorPool_object(VkDescriptorPool var) {
 ObjectInfo *get_DescriptorPool_objectInfo(VkDescriptorPool var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdDescriptorPools.find(var);
+        s_trimGlobalStateTracker.createdDescriptorPools.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdDescriptorPools.end()) {
         pResult = &(iter->second);
@@ -2046,7 +2037,7 @@ void remove_Pipeline_object(VkPipeline var) {
 ObjectInfo *get_Pipeline_objectInfo(VkPipeline var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdPipelines.find(var);
+        s_trimGlobalStateTracker.createdPipelines.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdPipelines.end()) {
         pResult = &(iter->second);
@@ -2074,7 +2065,7 @@ void remove_Semaphore_object(VkSemaphore var) {
 ObjectInfo *get_Semaphore_objectInfo(VkSemaphore var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdSemaphores.find(var);
+        s_trimGlobalStateTracker.createdSemaphores.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdSemaphores.end()) {
         pResult = &(iter->second);
@@ -2102,7 +2093,7 @@ void remove_Fence_object(VkFence var) {
 ObjectInfo *get_Fence_objectInfo(VkFence var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdFences.find(var);
+        s_trimGlobalStateTracker.createdFences.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdFences.end()) {
         pResult = &(iter->second);
@@ -2130,7 +2121,7 @@ void remove_Framebuffer_object(VkFramebuffer var) {
 ObjectInfo *get_Framebuffer_objectInfo(VkFramebuffer var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdFramebuffers.find(var);
+        s_trimGlobalStateTracker.createdFramebuffers.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdFramebuffers.end()) {
         pResult = &(iter->second);
@@ -2158,7 +2149,7 @@ void remove_Event_object(VkEvent var) {
 ObjectInfo *get_Event_objectInfo(VkEvent var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdEvents.find(var);
+        s_trimGlobalStateTracker.createdEvents.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdEvents.end()) {
         pResult = &(iter->second);
@@ -2186,7 +2177,7 @@ void remove_QueryPool_object(VkQueryPool var) {
 ObjectInfo *get_QueryPool_objectInfo(VkQueryPool var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdQueryPools.find(var);
+        s_trimGlobalStateTracker.createdQueryPools.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdQueryPools.end()) {
         pResult = &(iter->second);
@@ -2214,7 +2205,7 @@ void remove_DescriptorSet_object(VkDescriptorSet var) {
 ObjectInfo *get_DescriptorSet_objectInfo(VkDescriptorSet var) {
     vktrace_enter_critical_section(&trimStateTrackerLock);
     TrimObjectInfoMap::iterator iter =
-        s_trimGlobalStateTracker.createdDescriptorSets.find(var);
+        s_trimGlobalStateTracker.createdDescriptorSets.find(&var);
     ObjectInfo *pResult = NULL;
     if (iter != s_trimGlobalStateTracker.createdDescriptorSets.end()) {
         pResult = &(iter->second);
@@ -2243,7 +2234,7 @@ ObjectInfo *get_DescriptorSet_objectInfo(VkDescriptorSet var) {
     void mark_##type##_reference(Vk##type var) {                               \
         vktrace_enter_critical_section(&trimStateTrackerLock);                 \
         TrimObjectInfoMap::iterator iter =                                     \
-            s_trimStateTrackerSnapshot.created##type##s.find(var);             \
+            s_trimStateTrackerSnapshot.created##type##s.find(&var);            \
         if (iter != s_trimStateTrackerSnapshot.created##type##s.end()) {       \
             ObjectInfo *info = &iter->second;                                  \
             if (info != nullptr) {                                             \
@@ -2569,7 +2560,7 @@ void write_all_referenced_object_calls() {
 
     for (TrimObjectInfoMap::iterator obj = stateTracker.createdImages.begin();
          obj != stateTracker.createdImages.end(); obj++) {
-        VkImage image = static_cast<VkImage>(obj->first);
+        VkImage image = reinterpret_cast<VkImage>(obj->first);
         VkDevice device = obj->second.belongsToDevice;
 
         if (obj->second.ObjectInfo.Image.mostRecentLayout ==
@@ -2745,8 +2736,6 @@ void write_all_referenced_object_calls() {
                 uint32_t mipLevels = obj->second.ObjectInfo.Image.mipLevels;
                 uint32_t arrayLayers = obj->second.ObjectInfo.Image.arrayLayers;
                 VkFormat format = obj->second.ObjectInfo.Image.format;
-                VkSharingMode sharingMode =
-                    obj->second.ObjectInfo.Image.sharingMode;
                 uint32_t srcAccessMask =
                     (initialLayout == VK_IMAGE_LAYOUT_PREINITIALIZED)
                         ? VK_ACCESS_HOST_WRITE_BIT
@@ -3208,7 +3197,7 @@ void write_all_referenced_object_calls() {
     for (TrimObjectInfoMap::iterator obj =
              stateTracker.createdPipelines.begin();
          obj != stateTracker.createdPipelines.end(); obj++) {
-        VkPipeline pipeline = static_cast<VkPipeline>(obj->first);
+        VkPipeline pipeline = reinterpret_cast<VkPipeline>(obj->first);
         VkDevice device = obj->second.belongsToDevice;
         VkPipelineCache pipelineCache =
             obj->second.ObjectInfo.Pipeline.pipelineCache;
@@ -3294,7 +3283,7 @@ void write_all_referenced_object_calls() {
             allocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
             allocateInfo.pNext = NULL;
             allocateInfo.descriptorPool =
-                static_cast<VkDescriptorPool>(poolObj->first);
+                reinterpret_cast<VkDescriptorPool>(poolObj->first);
 
             VkDescriptorSetLayout *pSetLayouts =
                 new VkDescriptorSetLayout[poolObj->second.ObjectInfo
@@ -3317,7 +3306,7 @@ void write_all_referenced_object_calls() {
                     pSetLayouts[setIndex] =
                         setObj->second.ObjectInfo.DescriptorSet.layout;
                     pDescriptorSets[setIndex] =
-                        static_cast<VkDescriptorSet>(setObj->first);
+                        reinterpret_cast<VkDescriptorSet>(setObj->first);
                     setIndex++;
                 }
             }
@@ -3397,7 +3386,7 @@ void write_all_referenced_object_calls() {
     for (TrimObjectInfoMap::iterator obj = stateTracker.createdFences.begin();
          obj != stateTracker.createdFences.end(); obj++) {
         VkDevice device = obj->second.belongsToDevice;
-        VkFence fence = static_cast<VkFence>(obj->first);
+        VkFence fence = reinterpret_cast<VkFence>(obj->first);
         VkAllocationCallbacks *pAllocator =
             get_Allocator(obj->second.ObjectInfo.Fence.pAllocator);
 
@@ -3437,7 +3426,7 @@ void write_all_referenced_object_calls() {
             obj->second.ObjectInfo.QueryPool.commandBuffer;
 
         if (commandBuffer != VK_NULL_HANDLE) {
-            VkQueryPool queryPool = static_cast<VkQueryPool>(obj->first);
+            VkQueryPool queryPool = reinterpret_cast<VkQueryPool>(obj->first);
             VkDevice device = obj->second.belongsToDevice;
 
             VkCommandBufferBeginInfo beginInfo = {};
@@ -3569,7 +3558,7 @@ void write_all_referenced_object_calls() {
          obj != stateTracker.createdSemaphores.end(); obj++) {
         VkQueue queue = obj->second.ObjectInfo.Semaphore.signaledOnQueue;
         if (queue != VK_NULL_HANDLE) {
-            VkSemaphore semaphore = static_cast<VkSemaphore>(obj->first);
+            VkSemaphore semaphore = reinterpret_cast<VkSemaphore>(obj->first);
             pSignalSemaphores[signalSemaphoreCount++] = semaphore;
 
             VkSubmitInfo submit_info;
@@ -3680,7 +3669,6 @@ void write_destroy_packets() {
              s_trimGlobalStateTracker.createdQueues.begin();
          obj != s_trimGlobalStateTracker.createdQueues.end(); obj++) {
         VkQueue queue = static_cast<VkQueue>(obj->first);
-        VkDevice device = obj->second.belongsToDevice;
         vktrace_trace_packet_header *pHeader =
             generate::vkQueueWaitIdle(false, queue);
         vktrace_write_trace_packet(pHeader, vktrace_trace_get_trace_file());
@@ -3691,7 +3679,7 @@ void write_destroy_packets() {
     for (TrimObjectInfoMap::iterator obj =
              s_trimGlobalStateTracker.createdQueryPools.begin();
          obj != s_trimGlobalStateTracker.createdQueryPools.end(); obj++) {
-        VkQueryPool queryPool = static_cast<VkQueryPool>(obj->first);
+        VkQueryPool queryPool = reinterpret_cast<VkQueryPool>(obj->first);
         VkAllocationCallbacks *pAllocator =
             get_Allocator(obj->second.ObjectInfo.QueryPool.pAllocator);
 
@@ -3705,7 +3693,7 @@ void write_destroy_packets() {
     for (TrimObjectInfoMap::iterator obj =
              s_trimGlobalStateTracker.createdEvents.begin();
          obj != s_trimGlobalStateTracker.createdEvents.end(); obj++) {
-        VkEvent event = static_cast<VkEvent>(obj->first);
+        VkEvent event = reinterpret_cast<VkEvent>(obj->first);
         VkAllocationCallbacks *pAllocator =
             get_Allocator(obj->second.ObjectInfo.Event.pAllocator);
 
@@ -3719,7 +3707,7 @@ void write_destroy_packets() {
     for (TrimObjectInfoMap::iterator obj =
              s_trimGlobalStateTracker.createdFences.begin();
          obj != s_trimGlobalStateTracker.createdFences.end(); obj++) {
-        VkFence fence = static_cast<VkFence>(obj->first);
+        VkFence fence = reinterpret_cast<VkFence>(obj->first);
         VkAllocationCallbacks *pAllocator =
             get_Allocator(obj->second.ObjectInfo.Fence.pAllocator);
 
@@ -3733,7 +3721,7 @@ void write_destroy_packets() {
     for (TrimObjectInfoMap::iterator obj =
              s_trimGlobalStateTracker.createdSemaphores.begin();
          obj != s_trimGlobalStateTracker.createdSemaphores.end(); obj++) {
-        VkSemaphore semaphore = static_cast<VkSemaphore>(obj->first);
+        VkSemaphore semaphore = reinterpret_cast<VkSemaphore>(obj->first);
         VkAllocationCallbacks *pAllocator =
             get_Allocator(obj->second.ObjectInfo.Semaphore.pAllocator);
 
@@ -3747,7 +3735,7 @@ void write_destroy_packets() {
     for (TrimObjectInfoMap::iterator obj =
              s_trimGlobalStateTracker.createdFramebuffers.begin();
          obj != s_trimGlobalStateTracker.createdFramebuffers.end(); obj++) {
-        VkFramebuffer framebuffer = static_cast<VkFramebuffer>(obj->first);
+        VkFramebuffer framebuffer = reinterpret_cast<VkFramebuffer>(obj->first);
         VkAllocationCallbacks *pAllocator =
             get_Allocator(obj->second.ObjectInfo.Framebuffer.pAllocator);
 
@@ -3763,7 +3751,7 @@ void write_destroy_packets() {
          obj != s_trimGlobalStateTracker.createdDescriptorPools.end(); obj++) {
         // Free the associated DescriptorSets
         VkDescriptorPool descriptorPool =
-            static_cast<VkDescriptorPool>(obj->first);
+            reinterpret_cast<VkDescriptorPool>(obj->first);
 
         // We can always call ResetDescriptorPool, but can only use
         // FreeDescriptorSets if the pool was created with

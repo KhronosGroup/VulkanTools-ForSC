@@ -2090,8 +2090,6 @@ VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkQueueSubmit(
                     // Update attachment objects based on RenderPass transitions
                     for (uint32_t c = 0; c < pSubmits[i].commandBufferCount; c++)
                     {
-                        trim::ObjectInfo* pCBInfo = trim::get_CommandBuffer_objectInfo(pSubmits[i].pCommandBuffers[c]);
-
                         // apply image transitions
                         std::list<trim::ImageTransition> imageTransitions = trim::GetImageTransitions(pSubmits[i].pCommandBuffers[c]);
                         for (std::list<trim::ImageTransition>::iterator transition = imageTransitions.begin(); transition != imageTransitions.end(); transition++)

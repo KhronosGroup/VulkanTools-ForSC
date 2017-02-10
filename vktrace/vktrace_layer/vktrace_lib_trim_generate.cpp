@@ -3,7 +3,6 @@
 *
 * Author: Peter Lohrmann <Peter.Lohrmann@amd.com>
 */
-#pragma once
 #include "vktrace_trace_packet_identifiers.h"
 #include "vktrace_trace_packet_utils.h"
 #include "vktrace_lib_helpers.h"

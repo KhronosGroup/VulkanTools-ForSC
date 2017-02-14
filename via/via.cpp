@@ -521,6 +521,33 @@ void PrintEndTableRow() {
 
 void PrintEndTable() { global_items.html_file_stream << "    </table>" << std::endl; }
 
+const char *VkResultString(VkResult result) {
+    std::stringstream ss;
+    switch (result) {
+#define STR(r)                                                                 \
+    case r:                                                                    \
+        ss << #r
+        STR(VK_SUCCESS);
+        STR(VK_NOT_READY);
+        STR(VK_TIMEOUT);
+        STR(VK_EVENT_SET);
+        STR(VK_EVENT_RESET);
+        STR(VK_ERROR_INITIALIZATION_FAILED);
+        STR(VK_ERROR_OUT_OF_HOST_MEMORY);
+        STR(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+        STR(VK_ERROR_DEVICE_LOST);
+        STR(VK_ERROR_LAYER_NOT_PRESENT);
+        STR(VK_ERROR_EXTENSION_NOT_PRESENT);
+        STR(VK_ERROR_MEMORY_MAP_FAILED);
+        STR(VK_ERROR_INCOMPATIBLE_DRIVER);
+#undef STR
+    default:
+        ss << "UNKNOWN_RESULT";
+    }
+    ss << " (" << result << ")";
+    return ss.str().c_str();
+}
+
 // Generate the full library location for a file based on the location of
 // the JSON file referencing it, and the library location contained in that
 // JSON file.
@@ -4008,7 +4035,9 @@ ErrorResults PrintInstanceInfo(void) {
     PrintTableElement("vkEnumerateInstanceExtensionProperties");
     status = vkEnumerateInstanceExtensionProperties(NULL, &ext_count, NULL);
     if (status) {
-        snprintf(generic_string, MAX_STRING_LENGTH - 1, "ERROR: Failed to determine num inst extensions - %d", status);
+        const char *status_string = VkResultString(status);
+        snprintf(generic_string, MAX_STRING_LENGTH - 1,
+                 "ERROR: Failed to determine num inst extensions - %s", status_string);
         PrintTableElement(generic_string);
         PrintTableElement("");
         PrintEndTableRow();
@@ -4024,7 +4053,9 @@ ErrorResults PrintInstanceInfo(void) {
         if (status) {
             PrintBeginTableRow();
             PrintTableElement("");
-            snprintf(generic_string, MAX_STRING_LENGTH - 1, "ERROR: Failed to enumerate inst extensions - %d", status);
+            const char *status_string = VkResultString(status);
+            snprintf(generic_string, MAX_STRING_LENGTH - 1,
+                     "ERROR: Failed to enumerate inst extensions - %s", status_string);
             PrintTableElement(generic_string);
             PrintTableElement("");
             PrintEndTableRow();
@@ -4052,7 +4083,9 @@ ErrorResults PrintInstanceInfo(void) {
         PrintTableElement("ERROR: Out of memory");
         res = VULKAN_FAILED_OUT_OF_MEM;
     } else if (status) {
-        snprintf(generic_string, MAX_STRING_LENGTH - 1, "ERROR: Failed to create - %d", status);
+        const char *status_string = VkResultString(status);
+        snprintf(generic_string, MAX_STRING_LENGTH - 1,
+                 "ERROR: Failed to create - %s", status_string);
         PrintTableElement(generic_string);
         res = VULKAN_FAILED_CREATE_INSTANCE;
     } else {
@@ -4084,7 +4117,9 @@ ErrorResults PrintPhysDevInfo(void) {
     PrintTableElement("vkEnumeratePhysicalDevices");
     status = vkEnumeratePhysicalDevices(global_items.instance, &gpu_count, NULL);
     if (status) {
-        snprintf(generic_string, MAX_STRING_LENGTH - 1, "ERROR: Failed to query - %d", status);
+        const char *status_string = VkResultString(status);
+        snprintf(generic_string, MAX_STRING_LENGTH - 1,
+                 "ERROR: Failed to query - %s", status_string);
         PrintTableElement(generic_string);
         res = VULKAN_CANT_FIND_DRIVER;
         goto out;
@@ -4115,7 +4150,9 @@ ErrorResults PrintPhysDevInfo(void) {
         snprintf(generic_string, MAX_STRING_LENGTH - 1, "[%d]", iii);
         PrintTableElement(generic_string, ALIGN_RIGHT);
         if (status) {
-            snprintf(generic_string, MAX_STRING_LENGTH - 1, "ERROR: Failed to query - %d", status);
+            const char *status_string = VkResultString(status);
+            snprintf(generic_string, MAX_STRING_LENGTH - 1,
+                     "ERROR: Failed to query - %s", status_string);
             PrintTableElement(generic_string);
             PrintTableElement("");
             PrintTableElement("");

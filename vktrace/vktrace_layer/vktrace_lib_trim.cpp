@@ -52,6 +52,8 @@ VKTRACE_CRITICAL_SECTION trimRecordedPacketLock;
 VKTRACE_CRITICAL_SECTION trimStateTrackerLock;
 VKTRACE_CRITICAL_SECTION trimCommandBufferPacketLock;
 
+#define U_ASSERT_ONLY __attribute__((unused))
+
 //=========================================================================
 // Information necessary to create the staged buffer and memory for DEVICE_LOCAL
 // buffers.
@@ -423,8 +425,8 @@ void initialize() {
             2) {
             g_trimEndFrame = g_trimStartFrame + numFrames;
         } else {
-            int matches = sscanf(trimFrames, "%" PRIu64 "-%" PRIu64, &g_trimStartFrame,
-                                 &g_trimEndFrame);
+            U_ASSERT_ONLY int matches = sscanf(trimFrames, "%" PRIu64 "-%" PRIu64,
+                                               &g_trimStartFrame, &g_trimEndFrame);
             assert(matches == 2);
         }
 
@@ -914,10 +916,10 @@ void snapshot_state_tracker() {
              s_trimStateTrackerSnapshot.createdDevices.begin();
          deviceIter != s_trimStateTrackerSnapshot.createdDevices.end();
          deviceIter++) {
-        VkDevice device = reinterpret_cast<VkDevice>(deviceIter->first);
+        U_ASSERT_ONLY VkDevice device = reinterpret_cast<VkDevice>(deviceIter->first);
 
         // Find or create an existing command buffer
-        VkCommandBuffer commandBuffer = getCommandBufferFromDevice(device);
+        U_ASSERT_ONLY VkCommandBuffer commandBuffer = getCommandBufferFromDevice(device);
 
         // Begin the command buffer
         VkCommandBufferBeginInfo commandBufferBeginInfo;
@@ -926,7 +928,7 @@ void snapshot_state_tracker() {
         commandBufferBeginInfo.pNext = NULL;
         commandBufferBeginInfo.pInheritanceInfo = NULL;
         commandBufferBeginInfo.flags = 0;
-        VkResult result = mdd(device)->devTable.BeginCommandBuffer(
+        U_ASSERT_ONLY VkResult result = mdd(device)->devTable.BeginCommandBuffer(
             commandBuffer, &commandBufferBeginInfo);
         assert(result == VK_SUCCESS);
     }
@@ -1189,7 +1191,7 @@ void snapshot_state_tracker() {
         mdd(device)->devTable.GetDeviceQueue(device, 0, 0, &queue);
         mdd(device)->devTable.QueueSubmit(queue, 1, &submitInfo,
                                           VK_NULL_HANDLE);
-        VkResult waitResult = mdd(device)->devTable.QueueWaitIdle(queue);
+        U_ASSERT_ONLY VkResult waitResult = mdd(device)->devTable.QueueWaitIdle(queue);
         assert(waitResult == VK_SUCCESS);
     }
 
@@ -1346,7 +1348,7 @@ void snapshot_state_tracker() {
         commandBufferBeginInfo.pNext = NULL;
         commandBufferBeginInfo.pInheritanceInfo = NULL;
         commandBufferBeginInfo.flags = 0;
-        VkResult result = mdd(device)->devTable.BeginCommandBuffer(
+        U_ASSERT_ONLY VkResult result = mdd(device)->devTable.BeginCommandBuffer(
             commandBuffer, &commandBufferBeginInfo);
         assert(result == VK_SUCCESS);
     }
@@ -1443,7 +1445,7 @@ void snapshot_state_tracker() {
 
         mdd(device)->devTable.QueueSubmit(queue, 1, &submitInfo,
                                           VK_NULL_HANDLE);
-        VkResult waitResult = mdd(device)->devTable.QueueWaitIdle(queue);
+        U_ASSERT_ONLY VkResult waitResult = mdd(device)->devTable.QueueWaitIdle(queue);
         assert(waitResult == VK_SUCCESS);
     }
 

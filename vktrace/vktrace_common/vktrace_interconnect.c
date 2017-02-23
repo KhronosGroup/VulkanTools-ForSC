@@ -125,7 +125,7 @@ BOOL vktrace_MessageStream_SetupHostSocket(MessageStream* pStream) {
 #if defined(PLATFORM_LINUX) || defined(PLATFORM_OSX)
     int yes = 1;
 #endif
-    struct addrinfo hostAddrInfo = {0};
+    struct addrinfo hostAddrInfo = {};
     SOCKET listenSocket;
 
     vktrace_create_critical_section(&gSendLock);
@@ -201,7 +201,7 @@ BOOL vktrace_MessageStream_SetupClientSocket(MessageStream* pStream) {
     int hr = 0;
     unsigned int attempt = 0;
     BOOL bConnected = FALSE;
-    struct addrinfo hostAddrInfo = {0}, *currentAttempt = NULL;
+    struct addrinfo hostAddrInfo = {}, *currentAttempt = NULL;
     vktrace_create_critical_section(&gSendLock);
 
 #if defined(ANDROID)

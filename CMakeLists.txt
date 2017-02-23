@@ -349,12 +349,6 @@ endif()
 
 if(UNIX)
     install(DIRECTORY "${PROJECT_SOURCE_DIR}/include/vulkan" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-    if(NOT BUILD_WSI_XCB_SUPPORT)
-        set(BUILD_VKTRACE OFF)
-        if (NOT BUILD_WSI_XLIB_SUPPORT)
-            set(BUILD_LAYERSVT OFF)
-        endif()
-    endif()
 endif()
 
 # loader: Generic VULKAN ICD loader

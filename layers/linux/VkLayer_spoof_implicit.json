@@ -1,0 +1,20 @@
+{
+    "file_format_version" : "1.0.0",
+    "layer" : {
+        "name": "VK_LAYER_LUNARG_spoof",
+        "type": "GLOBAL",
+        "library_path": "/etc/vulkan/implicit_layer.d/libVkLayer_spoof.so",
+        "api_version": "1.0.33",
+        "implementation_version": "1",
+        "description": "LunarG Spoof Layer",
+        "device_extensions": [
+             {
+                 "name": "VK_LUNARG_LayerSpoofEXT",
+                 "spec_version": "0",
+                 "entrypoints": ["vkLayerSpoofEXT"]
+             }
+        ],
+    "disable_environment": { "DISABLE_LAYER_SPOOF_1": "1"},
+    "enable_environment": { "ENABLE_LAYER_SPOOF_1": "134"}
+    }
+}

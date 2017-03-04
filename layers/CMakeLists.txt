@@ -30,6 +30,7 @@ set(LAYER_JSON_FILES
     VkLayer_object_tracker
     VkLayer_unique_objects
     VkLayer_parameter_validation
+    VkLayer_spoof
     VkLayer_swapchain
     VkLayer_threading
     )
@@ -115,6 +116,7 @@ include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${CMAKE_PROJECT_BINARY_DIR}
     ${CMAKE_BINARY_DIR}
+    ${CMAKE_BINARY_DIR}/loader
 )
 
 if (WIN32)
@@ -156,6 +158,7 @@ add_dependencies(VkLayer_utils generate_helper_files)
 
 add_vk_layer(core_validation core_validation.cpp vk_layer_table.cpp descriptor_sets.cpp buffer_validation.cpp)
 add_vk_layer(object_tracker object_tracker.cpp vk_layer_table.cpp)
+add_vk_layer(spoof spoof.cpp vk_layer_table.cpp)
 add_vk_layer(swapchain swapchain.cpp vk_layer_table.cpp)
 # generated
 add_vk_layer(threading threading.cpp thread_check.h vk_layer_table.cpp)

@@ -1,5 +1,6 @@
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     add_definitions(-DVK_USE_PLATFORM_WIN32_KHR -DWIN32_LEAN_AND_MEAN)
+    include_directories (${CMAKE_BINARY_DIR})
     set(DisplayServer Win32)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Android")
     add_definitions(-DVK_USE_PLATFORM_ANDROID_KHR)
@@ -42,11 +43,12 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         message( FATAL_ERROR "Unrecognized value for DEMOS_WSI_SELECTION: ${DEMOS_WSI_SELECTION}" )
      endif()
 
-    include_directories ("${PROJECT_SOURCE_DIR}/icd/common")
+    include_directories ("${PROJECT_SOURCE_DIR}/icd/common" ${CMAKE_BINARY_DIR})
     link_libraries(${API_LOWERCASE} m)
 else()
     message(FATAL_ERROR "Unsupported Platform!")
 endif()
+
 
 file(GLOB TEXTURES
   "${PROJECT_SOURCE_DIR}/demos/*.ppm"
@@ -91,6 +93,7 @@ if(WIN32)
        )
    file(COPY cube.vcxproj.user DESTINATION ${CMAKE_BINARY_DIR}/demos)
    file(COPY vulkaninfo.vcxproj.user DESTINATION ${CMAKE_BINARY_DIR}/demos)
+   file(COPY vulkanspoofedinfo.vcxproj.user DESTINATION ${CMAKE_BINARY_DIR}/demos)
 else()
     if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL ${CMAKE_HOST_SYSTEM_PROCESSOR})
         add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/cube-vert.spv
@@ -111,6 +114,9 @@ endif()
 
 add_executable(${API_LOWERCASE}info vulkaninfo.c)
 target_link_libraries(${API_LOWERCASE}info ${LIBRARIES})
+
+add_executable(${API_LOWERCASE}spoofedinfo vulkanspoofedinfo.c)
+target_link_libraries(${API_LOWERCASE}spoofedinfo ${LIBRARIES})
 
 if(NOT WIN32)
     if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL ${CMAKE_HOST_SYSTEM_PROCESSOR})

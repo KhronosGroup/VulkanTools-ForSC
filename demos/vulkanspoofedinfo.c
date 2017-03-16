@@ -817,7 +817,7 @@ static void AppGpuInit(struct AppGpu *gpu, uint32_t id, VkPhysicalDevice obj, Vk
     uint32_t i;
 
     VkPhysicalDeviceLimits newLimits;
-    
+
     memset(gpu, 0, sizeof(*gpu));
 
     gpu->id = id;
@@ -827,20 +827,39 @@ static void AppGpuInit(struct AppGpu *gpu, uint32_t id, VkPhysicalDevice obj, Vk
 
     AppDumpLimits(&gpu->props.limits);
 
+bool a = false;
+while(a){
+    printf("ARDA -1 \n");
+}
+
     VkLayerDeviceProfileApiDispatchTable *spoofDtable = (VkLayerDeviceProfileApiDispatchTable *) malloc(sizeof(VkLayerDeviceProfileApiDispatchTable));
     VkLayerInstanceDispatchTable *pDisp = *(VkLayerInstanceDispatchTable **)instance;
-
-    spoofDtable->vkSetPhysicalDeviceLimitsEXT = 
+/*
+    spoofDtable->vkSetPhysicalDeviceLimitsEXT =
                             (PFN_vkSetPhysicalDeviceLimitsEXT)pDisp->GetInstanceProcAddr(instance, "vkSetPhysicalDeviceLimitsEXT");
-    spoofDtable->vkGetOriginalPhysicalDeviceLimitsEXT = 
+    spoofDtable->vkGetOriginalPhysicalDeviceLimitsEXT =
             (PFN_vkGetOriginalPhysicalDeviceLimitsEXT)pDisp->GetInstanceProcAddr(instance, "vkGetOriginalPhysicalDeviceLimitsEXT");
+*/
+    if(pDisp->GetPhysicalDeviceProcAddr) {
+        spoofDtable->vkSetPhysicalDeviceLimitsEXT =
+                (PFN_vkSetPhysicalDeviceLimitsEXT)pDisp->GetPhysicalDeviceProcAddr(instance, "vkSetPhysicalDeviceLimitsEXT");
+        spoofDtable->vkGetOriginalPhysicalDeviceLimitsEXT =
+                (PFN_vkGetOriginalPhysicalDeviceLimitsEXT)pDisp->GetPhysicalDeviceProcAddr(instance, "vkGetOriginalPhysicalDeviceLimitsEXT");
+    }
+    else {
+        printf("ARDA \n");
+    }
 
     gpu->props.limits.maxImageDimension1D--;
     gpu->props.limits.maxImageDimension1D--;
     gpu->props.limits.maxImageDimension1D--;
-    
+
+    printf("ARDA 2\n");
+
     if(spoofDtable->vkSetPhysicalDeviceLimitsEXT)
         spoofDtable->vkSetPhysicalDeviceLimitsEXT(gpu->obj, &gpu->props.limits);
+
+    printf("ARDA 3\n");
 
     vkGetPhysicalDeviceProperties(gpu->obj, &gpu->props);
 
@@ -1499,9 +1518,9 @@ int main(int argc, char **argv) {
     if (!gpus) ERR_EXIT(VK_ERROR_OUT_OF_HOST_MEMORY);
     for (uint32_t i = 0; i < gpu_count; i++) {
 
-        
+
         AppGpuInit(&gpus[i], i, objs[i], inst.instance);
-        
+
         printf("\n\n");
     }
 

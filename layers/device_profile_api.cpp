@@ -22,6 +22,10 @@
 #include <assert.h>
 #include <unordered_map>
 #include "loader.h"
+
+//check
+#include "threading.h"
+
 #include "vk_dispatch_table_helper.h"
 #include "vulkan/vk_lunarg_device_profile_api-layer.h"
 #include "vulkan/vk_device_profile_api_layer.h"
@@ -34,6 +38,13 @@ namespace device_profile_api {
 static std::unordered_map<dispatch_key, VkInstance> device_profile_api_instance_map;
 static std::mutex global_lock;
 
+// We keep physical device bookkeeping in this layer
+// To keep track of modified and original profile values
+uint32_t physical_device_count = 0;
+VkPhysicalDevice *physical_devices = nullptr;
+
+static uint32_t loader_layer_if_version = CURRENT_LOADER_LAYER_INTERFACE_VERSION;
+
 // device_profile_api Layer data to store profiled GPU information
 struct device_profile_api_data {
     VkPhysicalDeviceProperties *props;
@@ -45,6 +56,7 @@ struct device_profile_api_data {
     VkExtensionProperties *device_extensions;
 };
 static std::unordered_map<VkPhysicalDevice, struct device_profile_api_data> device_profile_api_dev_data_map;
+static std::unordered_map<VkPhysicalDevice, struct device_profile_api_data> device_profile_api_dev_org_data_map;
 
 // device_profile_api Layer EXT APIs
 typedef VkResult(VKAPI_PTR *PFN_vkGetOriginalPhysicalDeviceLimitsEXT)(VkPhysicalDevice physicalDevice,
@@ -77,6 +89,13 @@ VKAPI_ATTR VkResult VKAPI_CALL SetPhysicalDeviceLimitsEXT(VkPhysicalDevice physi
     {
         std::lock_guard<std::mutex> lock(global_lock);
 
+        for(uint32_t i =0; i<physical_device_count; i++) {
+            printf(" Store %p \n", (void *)physical_devices[i]);
+        }
+
+        printf(" Req   %p \n", (void *)physicalDevice);
+        printf(" Requn %p \n", (void *)unwrapped_phys_dev);
+
         // search if we got the device limits for this device and stored in device_profile_api layer
         auto device_profile_api_data_it = device_profile_api_dev_data_map.find(unwrapped_phys_dev);
         // if we do not have it call getDeviceProperties implicitly and store device properties in the device_profile_api_layer
@@ -96,9 +115,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
     assert(chain_info->u.pLayerInfo);
     PFN_vkGetInstanceProcAddr fp_get_instance_proc_addr = chain_info->u.pLayerInfo->pfnNextGetInstanceProcAddr;
     PFN_vkCreateInstance fp_create_instance = (PFN_vkCreateInstance)fp_get_instance_proc_addr(NULL, "vkCreateInstance");
-    if (fp_create_instance == NULL) {
-        return VK_ERROR_INITIALIZATION_FAILED;
-    }
+    if (fp_create_instance == NULL) return VK_ERROR_INITIALIZATION_FAILED;
 
     // Advance the link info for the next element on the chain
     chain_info->u.pLayerInfo = chain_info->u.pLayerInfo->pNext;
@@ -109,33 +126,42 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
     device_profile_api_instance_map[get_dispatch_key(*pInstance)] = *pInstance;
     initInstanceTable(*pInstance, fp_get_instance_proc_addr);
 
-    uint32_t physicalDeviceCount = 0;
-    VkPhysicalDevice *physicalDevices;
-    result = instance_dispatch_table(*pInstance)->EnumeratePhysicalDevices(*pInstance, &physicalDeviceCount, NULL);
-    if (result != VK_SUCCESS) return result;
 
-    physicalDevices = (VkPhysicalDevice *)malloc(sizeof(physicalDevices[0]) * physicalDeviceCount);
-    result = instance_dispatch_table(*pInstance)->EnumeratePhysicalDevices(*pInstance, &physicalDeviceCount, physicalDevices);
-    if (result != VK_SUCCESS) return result;
+    layer_data *my_data = GetLayerDataPtr(get_dispatch_key(*pInstance), layer_data_map);
+    my_data->instance = *pInstance;
+    my_data->instance_dispatch_table = new VkLayerInstanceDispatchTable;
+    layer_init_instance_dispatch_table(*pInstance, my_data->instance_dispatch_table, fp_get_instance_proc_addr);
 
-    // First of all get original physical device limits
-    for (uint8_t i = 0; i < physicalDeviceCount; i++) {
-        // Search if we got the device limits for this device and stored in device_profile_api layer
-        auto device_profile_api_data_it = device_profile_api_dev_data_map.find(physicalDevices[i]);
+    my_data->instance_dispatch_table->EnumeratePhysicalDevices(*pInstance, &physical_device_count, NULL);
+
+    //result = instance_dispatch_table(*pInstance)->EnumeratePhysicalDevices(*pInstance, &physical_device_count, NULL);
+    //if (result != VK_SUCCESS) return result;
+
+    physical_devices = (VkPhysicalDevice *)malloc(sizeof(physical_devices[0]) * physical_device_count);
+    result = my_data->instance_dispatch_table->EnumeratePhysicalDevices(*pInstance, &physical_device_count, physical_devices);
+    //result = instance_dispatch_table(*pInstance)->EnumeratePhysicalDevices(*pInstance, &physical_device_count, physical_devices);
+    //if (result != VK_SUCCESS) return result;
+
+    // First of all get original physical device props
+    for (uint8_t i = 0; i < physical_device_count; i++) {
+        // Search if we got the device props for this device and stored in device_profile_api layer
+        auto device_profile_api_data_it = device_profile_api_dev_org_data_map.find(physical_devices[i]);
         // If we do not have it store device properties in the device_profile_api_layer
-        if (device_profile_api_data_it == device_profile_api_dev_data_map.end()) {
-            device_profile_api_dev_data_map[physicalDevices[i]].props = (VkPhysicalDeviceProperties *)malloc(sizeof(VkPhysicalDeviceProperties));
-            if (device_profile_api_dev_data_map[physicalDevices[i]].props) {
-                instance_dispatch_table(*pInstance)
-                    ->GetPhysicalDeviceProperties(physicalDevices[i], device_profile_api_dev_data_map[physicalDevices[i]].props);
+        if (device_profile_api_data_it == device_profile_api_dev_org_data_map.end()) {
+            device_profile_api_dev_org_data_map[physical_devices[i]].props = (VkPhysicalDeviceProperties *)malloc(sizeof(VkPhysicalDeviceProperties));
+            if (device_profile_api_dev_org_data_map[physical_devices[i]].props) {
+                my_data->instance_dispatch_table
+                     ->GetPhysicalDeviceProperties(physical_devices[i], device_profile_api_dev_org_data_map[physical_devices[i]].props);
+                //instance_dispatch_table(*pInstance)
+                //     ->GetPhysicalDeviceProperties(physical_devices[i], device_profile_api_dev_org_data_map[physical_devices[i]].props);
             } else {
                 if (i == 0) {
                     return VK_ERROR_OUT_OF_HOST_MEMORY;
                 } else {  // Free others
                     for (uint8_t j = 0; j < i; j++) {
-                        if (device_profile_api_dev_data_map[physicalDevices[j]].props) {
-                            free(device_profile_api_dev_data_map[physicalDevices[j]].props);
-                            device_profile_api_dev_data_map[physicalDevices[j]].props = nullptr;
+                        if (device_profile_api_dev_org_data_map[physical_devices[j]].props) {
+                            free(device_profile_api_dev_org_data_map[physical_devices[j]].props);
+                            device_profile_api_dev_org_data_map[physical_devices[j]].props = nullptr;
                         }
                     }
                     return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -292,7 +318,21 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumerateDeviceExtensionProperties(VkPhysicalDevi
     return instance_dispatch_table(physicalDevice)->EnumerateDeviceExtensionProperties(physicalDevice, pLayerName, pCount, pProperties);
 }
 
+// Need to prototype this call because it's internal and does not show up in vk.xml
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetPhysicalDeviceProcAddr(VkInstance instance, const char *name) {
+
+    printf("ARDA %s \n", __func__);
+    if (!name || name[0] != 'v' || name[1] != 'k') return NULL;
+
+    name += 2;
+    if (!strcmp(name, "SetPhysicalDeviceLimitsEXT")) return (PFN_vkVoidFunction)SetPhysicalDeviceLimitsEXT;
+    if (!strcmp(name, "GetOriginalPhysicalDeviceLimitsEXT")) return (PFN_vkVoidFunction)GetOriginalPhysicalDeviceLimitsEXT;
+
+    return NULL;
+}
+
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, const char *name) {
+    //printf("ARDA %s \n", __func__);
     if (!name || name[0] != 'v' || name[1] != 'k') return NULL;
 
     name += 2;
@@ -305,12 +345,14 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, cons
 }
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetInstanceProcAddr(VkInstance instance, const char *name) {
+    //printf("ARDA %s \n", __func__);
     if (!name || name[0] != 'v' || name[1] != 'k') return NULL;
 
     name += 2;
     if (!strcmp(name, "CreateInstance")) return (PFN_vkVoidFunction)CreateInstance;
     if (!strcmp(name, "DestroyInstance")) return (PFN_vkVoidFunction)DestroyInstance;
     if (!strcmp(name, "EnumeratePhysicalDevices")) return (PFN_vkVoidFunction)EnumeratePhysicalDevices;
+    if (!strcmp(name, "_layerGetPhysicalDeviceProcAddr")) return (PFN_vkVoidFunction)GetPhysicalDeviceProcAddr;
     if (!strcmp(name, "GetPhysicalDeviceFeatures")) return (PFN_vkVoidFunction)GetPhysicalDeviceFeatures;
     if (!strcmp(name, "GetPhysicalDeviceFormatProperties")) return (PFN_vkVoidFunction)GetPhysicalDeviceFormatProperties;
     if (!strcmp(name, "GetPhysicalDeviceImageFormatProperties")) return (PFN_vkVoidFunction)GetPhysicalDeviceImageFormatProperties;
@@ -366,4 +408,31 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr(VkD
 
 VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr(VkInstance instance, const char *funcName) {
     return device_profile_api::GetInstanceProcAddr(instance, funcName);
+}
+
+
+VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_layerGetPhysicalDeviceProcAddr(VkInstance instance,
+        const char *funcName) {
+    return device_profile_api::GetPhysicalDeviceProcAddr(instance, funcName);
+}
+
+VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface *pVersionStruct) {
+    assert(pVersionStruct != NULL);
+    assert(pVersionStruct->sType == LAYER_NEGOTIATE_INTERFACE_STRUCT);
+
+    // Fill in the function pointers if our version is at least capable of having the structure contain them.
+    if (pVersionStruct->loaderLayerInterfaceVersion >= 2) {
+        pVersionStruct->pfnGetInstanceProcAddr = vkGetInstanceProcAddr;
+        pVersionStruct->pfnGetDeviceProcAddr = vkGetDeviceProcAddr;
+        pVersionStruct->pfnGetPhysicalDeviceProcAddr = vk_layerGetPhysicalDeviceProcAddr;
+        printf("ARDA %s \n", __func__);
+    }
+
+    if (pVersionStruct->loaderLayerInterfaceVersion < CURRENT_LOADER_LAYER_INTERFACE_VERSION) {
+        device_profile_api::loader_layer_if_version = pVersionStruct->loaderLayerInterfaceVersion;
+    } else if (pVersionStruct->loaderLayerInterfaceVersion > CURRENT_LOADER_LAYER_INTERFACE_VERSION) {
+        pVersionStruct->loaderLayerInterfaceVersion = CURRENT_LOADER_LAYER_INTERFACE_VERSION;
+    }
+
+    return VK_SUCCESS;
 }

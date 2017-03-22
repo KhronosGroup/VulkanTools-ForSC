@@ -831,7 +831,7 @@ bool a = false;
 while(a){
     printf("ARDA -1 \n");
 }
-
+    //vk_layerGetPhysicalDeviceProcAddr
     VkLayerDeviceProfileApiDispatchTable *spoofDtable = (VkLayerDeviceProfileApiDispatchTable *) malloc(sizeof(VkLayerDeviceProfileApiDispatchTable));
     VkLayerInstanceDispatchTable *pDisp = *(VkLayerInstanceDispatchTable **)instance;
 /*

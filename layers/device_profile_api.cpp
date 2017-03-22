@@ -331,6 +331,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetPhysicalDeviceProcAddr(VkInstance in
     return NULL;
 }
 
+
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, const char *name) {
     //printf("ARDA %s \n", __func__);
     if (!name || name[0] != 'v' || name[1] != 'k') return NULL;
@@ -338,6 +339,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, cons
     name += 2;
     if (!strcmp(name, "GetDeviceProcAddr")) return (PFN_vkVoidFunction)GetDeviceProcAddr;
     if (!strcmp(name, "DestroyDevice")) return (PFN_vkVoidFunction)DestroyDevice;
+    if (!strcmp(name, "_layerGetPhysicalDeviceProcAddr")) return (PFN_vkVoidFunction)GetPhysicalDeviceProcAddr;
     if (device == NULL) return NULL;
 
     if (device_dispatch_table(device)->GetDeviceProcAddr == NULL) return NULL;

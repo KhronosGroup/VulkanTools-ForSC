@@ -831,24 +831,18 @@ bool a = false;
 while(a){
     printf("ARDA -1 \n");
 }
-    //vk_layerGetPhysicalDeviceProcAddr
-    VkLayerDeviceProfileApiDispatchTable *spoofDtable = (VkLayerDeviceProfileApiDispatchTable *) malloc(sizeof(VkLayerDeviceProfileApiDispatchTable));
-    VkLayerInstanceDispatchTable *pDisp = *(VkLayerInstanceDispatchTable **)instance;
-/*
-    spoofDtable->vkSetPhysicalDeviceLimitsEXT =
-                            (PFN_vkSetPhysicalDeviceLimitsEXT)pDisp->GetInstanceProcAddr(instance, "vkSetPhysicalDeviceLimitsEXT");
-    spoofDtable->vkGetOriginalPhysicalDeviceLimitsEXT =
-            (PFN_vkGetOriginalPhysicalDeviceLimitsEXT)pDisp->GetInstanceProcAddr(instance, "vkGetOriginalPhysicalDeviceLimitsEXT");
-*/
-    if(pDisp->GetPhysicalDeviceProcAddr) {
-        spoofDtable->vkSetPhysicalDeviceLimitsEXT =
-                (PFN_vkSetPhysicalDeviceLimitsEXT)pDisp->GetPhysicalDeviceProcAddr(instance, "vkSetPhysicalDeviceLimitsEXT");
-        spoofDtable->vkGetOriginalPhysicalDeviceLimitsEXT =
-                (PFN_vkGetOriginalPhysicalDeviceLimitsEXT)pDisp->GetPhysicalDeviceProcAddr(instance, "vkGetOriginalPhysicalDeviceLimitsEXT");
+
+//    static PFN_GetPhysicalDeviceProcAddr  g_gdpa = NULL;
+    PFN_vkSetPhysicalDeviceLimitsEXT fpvkSetPhysicalDeviceLimitsEXT = (PFN_vkSetPhysicalDeviceLimitsEXT)vkGetInstanceProcAddr(instance, "vkSetPhysicalDeviceLimitsEXT");
+    PFN_vkGetOriginalPhysicalDeviceLimitsEXT fpvkGetOriginalPhysicalDeviceLimitsEXT = (PFN_vkGetOriginalPhysicalDeviceLimitsEXT)vkGetInstanceProcAddr(instance, "vkGetOriginalPhysicalDeviceLimitsEXT");
+
+    if(fpvkSetPhysicalDeviceLimitsEXT){
+        printf("workjed\n");
     }
     else {
-        printf("ARDA \n");
+    printf( "diud not work\n" );
     }
+
 
     gpu->props.limits.maxImageDimension1D--;
     gpu->props.limits.maxImageDimension1D--;
@@ -856,8 +850,9 @@ while(a){
 
     printf("ARDA 2\n");
 
-    if(spoofDtable->vkSetPhysicalDeviceLimitsEXT)
-        spoofDtable->vkSetPhysicalDeviceLimitsEXT(gpu->obj, &gpu->props.limits);
+    fpvkSetPhysicalDeviceLimitsEXT(gpu->obj, &gpu->props.limits);
+    //if(spoofDtable->vkSetPhysicalDeviceLimitsEXT)
+    //    spoofDtable->vkSetPhysicalDeviceLimitsEXT(gpu->obj, &gpu->props.limits);
 
     printf("ARDA 3\n");
 
@@ -865,8 +860,10 @@ while(a){
 
     AppDumpLimits(&gpu->props.limits);
 
-    if(spoofDtable->vkGetOriginalPhysicalDeviceLimitsEXT)
-        spoofDtable->vkGetOriginalPhysicalDeviceLimitsEXT(gpu->obj, &gpu->props.limits);
+    //if(spoofDtable->vkGetOriginalPhysicalDeviceLimitsEXT)
+    //    spoofDtable->vkGetOriginalPhysicalDeviceLimitsEXT(gpu->obj, &gpu->props.limits);
+
+    fpvkGetOriginalPhysicalDeviceLimitsEXT(gpu->obj, &gpu->props.limits);
 
     AppDumpLimits(&gpu->props.limits);
 

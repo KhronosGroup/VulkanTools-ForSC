@@ -1291,6 +1291,7 @@ static struct loader_icd_term *loader_icd_add(struct loader_instance *ptr_inst, 
 //     @return  bool indicating true if the selected interface version is supported
 //            by the loader, false indicates the version is not supported
 bool loader_get_icd_interface_version(PFN_vkNegotiateLoaderICDInterfaceVersion fp_negotiate_icd_version, uint32_t *pVersion) {
+
     if (fp_negotiate_icd_version == NULL) {
         // ICD does not support the negotiation API, it supports version 0 or 1
         // calling code must determine if it is version 0 or 1
@@ -3778,6 +3779,7 @@ bool loader_get_layer_interface_version(PFN_vkNegotiateLoaderLayerInterfaceVersi
         // Layer supports the negotiation API, so call it with the loader's
         // latest version supported
         interface_struct->loaderLayerInterfaceVersion = CURRENT_LOADER_LAYER_INTERFACE_VERSION;
+        interface_struct->sType = LAYER_NEGOTIATE_INTERFACE_STRUCT;
         VkResult result = fp_negotiate_layer_version(interface_struct);
 
         if (result != VK_SUCCESS) {
@@ -3852,12 +3854,13 @@ VkResult loader_create_instance_chain(const VkInstanceCreateInfo *pCreateInfo, c
                 continue;
             }
 
+
             if (NULL == layer_prop->functions.negotiate_layer_interface) {
                 PFN_vkNegotiateLoaderLayerInterfaceVersion negotiate_interface = NULL;
                 bool functions_in_interface = false;
                 if (strlen(layer_prop->functions.str_negotiate_interface) == 0) {
                     negotiate_interface = (PFN_vkNegotiateLoaderLayerInterfaceVersion)loader_platform_get_proc_address(
-                        lib_handle, "vkNegotiateLoaderLayerInterfaceVersion");
+                                              lib_handle, "vkNegotiateLoaderLayerInterfaceVersion");
                 } else {
                     negotiate_interface = (PFN_vkNegotiateLoaderLayerInterfaceVersion)loader_platform_get_proc_address(
                         lib_handle, layer_prop->functions.str_negotiate_interface);
@@ -3876,7 +3879,6 @@ VkResult loader_create_instance_chain(const VkInstanceCreateInfo *pCreateInfo, c
                         // Go ahead and set the properties version to the
                         // correct value.
                         layer_prop->interface_version = interface_struct.loaderLayerInterfaceVersion;
-
                         // If the interface is 2 or newer, we have access to the
                         // new GetPhysicalDeviceProcAddr function, so grab it,
                         // and the other necessary functions, from the
@@ -4061,7 +4063,6 @@ VkResult loader_create_device_chain(const struct loader_physical_device_tramp *p
                     negotiate_interface = (PFN_vkNegotiateLoaderLayerInterfaceVersion)loader_platform_get_proc_address(
                         lib_handle, layer_prop->functions.str_negotiate_interface);
                 }
-
                 if (NULL != negotiate_interface) {
                     layer_prop->functions.negotiate_layer_interface = negotiate_interface;
 

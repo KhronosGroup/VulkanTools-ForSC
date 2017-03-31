@@ -952,6 +952,8 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVe
     assert(pVersionStruct != NULL);
     assert(pVersionStruct->sType == LAYER_NEGOTIATE_INTERFACE_STRUCT);
 
+    fprintf(stderr, "ARDA AQ\n");
+
     // Fill in the function pointers if our version is at least capable of having the structure contain them.
     if (pVersionStruct->loaderLayerInterfaceVersion >= 2) {
         pVersionStruct->pfnGetInstanceProcAddr = vkGetInstanceProcAddr;

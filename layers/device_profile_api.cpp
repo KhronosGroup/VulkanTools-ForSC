@@ -68,24 +68,22 @@ typedef VkResult(VKAPI_PTR *PFN_vkSetPhysicalDeviceLimitsEXT)(VkPhysicalDevice p
 static PFN_vkSetPhysicalDeviceLimitsEXT pfn_set_physical_device_limits_extension;
 
 VKAPI_ATTR void VKAPI_CALL GetOriginalPhysicalDeviceLimitsEXT(VkPhysicalDevice physicalDevice, VkPhysicalDeviceLimits *orgLimits) {
-    // unwrapping the physicalDevice in order to get the same physicalDevice address which loader wraps
-    // We have to do this as this API is a layer extension and loader does not wrap like regular API in vulkan.h
-    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(physicalDevice);
     {
         std::lock_guard<std::mutex> lock(global_lock);
 
-        VkPhysicalDeviceProperties implicit_properties;
-        instance_dispatch_table(unwrapped_phys_dev)->GetPhysicalDeviceProperties(unwrapped_phys_dev, &implicit_properties);
-
-        if (orgLimits) memcpy(orgLimits, &implicit_properties.limits, sizeof(VkPhysicalDeviceLimits));
+        // search if we got the device limits for this device and stored in device_profile_api layer
+        auto device_profile_api_data_it = device_profile_api_dev_org_data_map.find(physicalDevice);
+        // if we do not have it call getDeviceProperties implicitly and store device properties in the device_profile_api_layer
+        if (device_profile_api_data_it != device_profile_api_dev_org_data_map.end()) {
+            if (device_profile_api_dev_org_data_map[physicalDevice].props && orgLimits) {
+                memcpy( orgLimits, &(device_profile_api_dev_org_data_map[physicalDevice].props->limits), sizeof(VkPhysicalDeviceLimits));
+            }
+        }
     }
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL SetPhysicalDeviceLimitsEXT(VkPhysicalDevice physicalDevice,
                                                           const VkPhysicalDeviceLimits *newLimits) {
-    // unwrapping the physicalDevice in order to get the same physicalDevice address which loader wraps
-    // We have to do this as this API is a layer extension and loader does not wrap like regular API in vulkan.h
-    VkPhysicalDevice unwrapped_phys_dev = loader_unwrap_physical_device(physicalDevice);
     {
         std::lock_guard<std::mutex> lock(global_lock);
 
@@ -94,14 +92,16 @@ VKAPI_ATTR VkResult VKAPI_CALL SetPhysicalDeviceLimitsEXT(VkPhysicalDevice physi
         }
 
         printf(" Req   %p \n", (void *)physicalDevice);
-        printf(" Requn %p \n", (void *)unwrapped_phys_dev);
 
         // search if we got the device limits for this device and stored in device_profile_api layer
-        auto device_profile_api_data_it = device_profile_api_dev_data_map.find(unwrapped_phys_dev);
+        auto device_profile_api_data_it = device_profile_api_dev_data_map.find(physicalDevice);
         // if we do not have it call getDeviceProperties implicitly and store device properties in the device_profile_api_layer
         if (device_profile_api_data_it != device_profile_api_dev_data_map.end()) {
-            if (device_profile_api_dev_data_map[unwrapped_phys_dev].props && newLimits)
-                memcpy(&(device_profile_api_dev_data_map[unwrapped_phys_dev].props->limits), newLimits, sizeof(VkPhysicalDeviceLimits));
+            printf(" ARDA in SET Limits  %p \n", (void *)physicalDevice);
+            if (device_profile_api_dev_data_map[physicalDevice].props && newLimits) {
+                printf(" ARDA in SET Limits  %p \n", (void *)physicalDevice);
+                memcpy(&(device_profile_api_dev_data_map[physicalDevice].props->limits), newLimits, sizeof(VkPhysicalDeviceLimits));
+            }
         }
     }
     return VK_SUCCESS;
@@ -142,6 +142,7 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
     //result = instance_dispatch_table(*pInstance)->EnumeratePhysicalDevices(*pInstance, &physical_device_count, physical_devices);
     //if (result != VK_SUCCESS) return result;
 
+    //printf(" INIT   %p \n", (void *)physical_devices[0]);
     // First of all get original physical device props
     for (uint8_t i = 0; i < physical_device_count; i++) {
         // Search if we got the device props for this device and stored in device_profile_api layer
@@ -152,8 +153,10 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
             if (device_profile_api_dev_org_data_map[physical_devices[i]].props) {
                 my_data->instance_dispatch_table
                      ->GetPhysicalDeviceProperties(physical_devices[i], device_profile_api_dev_org_data_map[physical_devices[i]].props);
+                printf(" INIT ?  %p \n", (void *)physical_devices[i]);
                 //instance_dispatch_table(*pInstance)
                 //     ->GetPhysicalDeviceProperties(physical_devices[i], device_profile_api_dev_org_data_map[physical_devices[i]].props);
+
             } else {
                 if (i == 0) {
                     return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -162,6 +165,33 @@ VKAPI_ATTR VkResult VKAPI_CALL CreateInstance(const VkInstanceCreateInfo *pCreat
                         if (device_profile_api_dev_org_data_map[physical_devices[j]].props) {
                             free(device_profile_api_dev_org_data_map[physical_devices[j]].props);
                             device_profile_api_dev_org_data_map[physical_devices[j]].props = nullptr;
+                        }
+                    }
+                    return VK_ERROR_OUT_OF_HOST_MEMORY;
+                }
+            }
+        }
+    }
+
+    for (uint8_t i = 0; i < physical_device_count; i++) {
+        // Search if we got the device props for this device and stored in device_profile_api layer
+        auto device_profile_api_data_it = device_profile_api_dev_data_map.find(physical_devices[i]);
+        // If we do not have it store device properties in the device_profile_api_layer
+        if (device_profile_api_data_it == device_profile_api_dev_data_map.end()) {
+            device_profile_api_dev_data_map[physical_devices[i]].props = (VkPhysicalDeviceProperties *)malloc(sizeof(VkPhysicalDeviceProperties));
+            if (device_profile_api_dev_data_map[physical_devices[i]].props) {
+                printf(" INIT2   %p \n", (void *)physical_devices[i]);
+                memcpy( &(device_profile_api_dev_data_map[physical_devices[i]].props),
+                         &(device_profile_api_dev_org_data_map[physical_devices[i]].props),
+                          sizeof(VkPhysicalDeviceProperties));
+            } else {
+                if (i == 0) {
+                    return VK_ERROR_OUT_OF_HOST_MEMORY;
+                } else {  // Free others
+                    for (uint8_t j = 0; j < i; j++) {
+                        if (device_profile_api_dev_data_map[physical_devices[j]].props) {
+                            free(device_profile_api_dev_data_map[physical_devices[j]].props);
+                            device_profile_api_dev_data_map[physical_devices[j]].props = nullptr;
                         }
                     }
                     return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -243,13 +273,17 @@ VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceProperties(VkPhysicalDevice physical
     {
         std::lock_guard<std::mutex> lock(global_lock);
 
+        printf("ARDA in GetPhysicalDeviceProperties %p \n", physicalDevice);
         // Search if we got the device limits for this device and stored in device_profile_api layer
         auto device_profile_api_data_it = device_profile_api_dev_data_map.find(physicalDevice);
         if (device_profile_api_data_it != device_profile_api_dev_data_map.end()) {
             // device_profile_api layer device limits exists for this device so overwrite with desired limits
-            if (device_profile_api_dev_data_map[physicalDevice].props)
+            if (device_profile_api_dev_data_map[physicalDevice].props) {
+                printf("ARDA in GetPhysicalDeviceProperties loading %p \n", physicalDevice);
                 memcpy(pProperties, device_profile_api_dev_data_map[physicalDevice].props, sizeof(VkPhysicalDeviceProperties));
+            }
         } else {
+            printf("ARDA in GetPhysicalDeviceProperties AGAIN?q %p \n", physicalDevice);
             instance_dispatch_table(physicalDevice)->GetPhysicalDeviceProperties(physicalDevice, pProperties);
         }
     }
@@ -318,7 +352,7 @@ VKAPI_ATTR VkResult VKAPI_CALL EnumerateDeviceExtensionProperties(VkPhysicalDevi
     return instance_dispatch_table(physicalDevice)->EnumerateDeviceExtensionProperties(physicalDevice, pLayerName, pCount, pProperties);
 }
 
-// Need to prototype this call because it's internal and does not show up in vk.xml
+// This call is internal and does not show up in vk.xml
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetPhysicalDeviceProcAddr(VkInstance instance, const char *name) {
 
     printf("ARDA %s \n", __func__);
@@ -330,7 +364,6 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetPhysicalDeviceProcAddr(VkInstance in
 
     return NULL;
 }
-
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL GetDeviceProcAddr(VkDevice device, const char *name) {
     //printf("ARDA %s \n", __func__);
@@ -418,16 +451,20 @@ VK_LAYER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_layerGetPhysicalDevi
     return device_profile_api::GetPhysicalDeviceProcAddr(instance, funcName);
 }
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVersion(VkNegotiateLayerInterface *pVersionStruct) {
     assert(pVersionStruct != NULL);
     assert(pVersionStruct->sType == LAYER_NEGOTIATE_INTERFACE_STRUCT);
 
+    printf("ARDA %s \n", __func__);
     // Fill in the function pointers if our version is at least capable of having the structure contain them.
     if (pVersionStruct->loaderLayerInterfaceVersion >= 2) {
         pVersionStruct->pfnGetInstanceProcAddr = vkGetInstanceProcAddr;
         pVersionStruct->pfnGetDeviceProcAddr = vkGetDeviceProcAddr;
         pVersionStruct->pfnGetPhysicalDeviceProcAddr = vk_layerGetPhysicalDeviceProcAddr;
-        printf("ARDA %s \n", __func__);
     }
 
     if (pVersionStruct->loaderLayerInterfaceVersion < CURRENT_LOADER_LAYER_INTERFACE_VERSION) {
@@ -438,3 +475,6 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVe
 
     return VK_SUCCESS;
 }
+#ifdef __cplusplus
+}
+#endif

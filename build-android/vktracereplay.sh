@@ -30,6 +30,7 @@ function printUsage {
    echo "    --apk <full path to APK>"
    echo "    --package <package name>"
    echo "    --actvity <launchable-activity name>"
+   echo "    --args <arguments to pass to the activity> (optional)"
    echo "    --frame <frame number to capture>"
    echo
    echo "i.e. ${0##*/} --serial 01234567 \\"
@@ -39,6 +40,7 @@ function printUsage {
    echo "              --apk ~/Downloads/foo.apk.apk \\"
    echo "              --package com.example.foo \\"
    echo "              --actvity android.app.NativeActivity \\"
+   echo "              --args \"--validate\" \\"
    echo "              --frame 1"
    exit 1
 }
@@ -83,6 +85,10 @@ do
             ;;
         --activity)
             activity="$2"
+            shift 2
+            ;;
+        --args)
+            args="$2"
             shift 2
             ;;
         --frame)
@@ -175,6 +181,14 @@ then
     activity=$default_activity
 fi
 echo activity = $activity
+
+if [[ -z $args ]];
+then
+    echo No extra arguments detected
+else
+    echo Arguments detect, please avoid spaces
+fi
+echo args = $args
 
 if [[ -z $frame ]];
 then
@@ -328,7 +342,7 @@ adb $serialFlag shell setprop debug.vulkan.screenshot $frame
 # vktrace
 adb $serialFlag reverse localabstract:vktrace tcp:34201
 $vktrace_exe -v full -o $package.vktrace &
-adb $serialFlag shell am start $package/$activity
+adb $serialFlag shell am start -a android.intent.action.MAIN -c android-intent.category.LAUNCH -n $package/$activity --es args \"$args\"
 
 # don't halt on error for this loop
 set +e

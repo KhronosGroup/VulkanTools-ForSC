@@ -4,7 +4,7 @@
 
 script_start_time=$(date +%s)
 
-default_vkreplay_apk=./vkreplay/bin/NativeActivity-debug.apk
+default_vkreplay_apk=./vkreplay/bin/vkreplay.apk
 default_vktrace_exe=../build/vktrace/vktrace
 default_vktrace32_exe=../build32/vktrace/vktrace32
 default_target_abi=$(adb shell getprop ro.product.cpu.abi)
@@ -35,7 +35,7 @@ function printUsage {
    echo "i.e. ${0##*/} --serial 01234567 \\"
    echo "              --abi arm64-v8a \\"
    echo "              --vktrace ../build/vktrace/vktrace \\"
-   echo "              --vkreplay ./vkreplay/bin/NativeActivity-debug.apk \\"
+   echo "              --vkreplay ./vkreplay/bin/vkreplay.apk \\"
    echo "              --apk ~/Downloads/foo.apk.apk \\"
    echo "              --package com.example.foo \\"
    echo "              --actvity android.app.NativeActivity \\"

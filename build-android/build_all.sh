@@ -41,6 +41,7 @@ function findtool() {
 findtool aapt
 findtool zipalign
 findtool jarsigner
+#findtool apksigner
 
 set -ev
 
@@ -52,6 +53,7 @@ echo DEMO_BUILD_DIR="${DEMO_BUILD_DIR}"
 function create_APK() {
     aapt package -f -M AndroidManifest.xml -I "$ANDROID_SDK_HOME/platforms/android-23/android.jar" -S res -F bin/$1-unaligned.apk bin/libs
     # update this logic to detect if key is already there.  If so, use it, otherwise create it.
+    # apksigner sign -v --ks ~/.android/debug.keystore --ks-pass pass:android --key-pass pass:android --ks-key-alias androiddebugkey $1-unaligned.apk
     jarsigner -verbose -keystore ~/.android/debug.keystore -storepass android -keypass android  bin/$1-unaligned.apk androiddebugkey
     zipalign -f 4 bin/$1-unaligned.apk bin/$1.apk
 }
@@ -94,6 +96,69 @@ popd
 # build Smoke with layers
 #
 # TODO
+
+#
+# build vkreplay APK
+#
+(
+pushd vkreplay
+mkdir -p bin/libs/lib
+cp -r $LAYER_BUILD_DIR/libs/* bin/libs/lib/
+create_APK vkreplay
+popd
+)
+
+#
+# build host vktrace components
+#
+#
+# build vktrace
+#
+(
+pushd ..
+./update_external_sources.sh -g -s
+mkdir -p build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Debug \
+-DBUILD_LOADER=Off \
+-DBUILD_TESTS=Off \
+-DBUILD_LAYERS=Off \
+-DBUILD_VKTRACEVIEWER=Off \
+-DBUILD_LAYERSVT=Off \
+-DBUILD_DEMOS=Off \
+-DBUILD_VKJSON=Off \
+-DBUILD_VIA=Off \
+-DBUILD_VKTRACE_LAYER=Off \
+-DBUILD_VKTRACE_REPLAY=Off \
+-DBUILD_VKTRACE=On ..
+make -j $cores vktrace
+popd
+)
+
+#
+# build vktrace32
+#
+(
+pushd ..
+mkdir -p build32
+cd build32
+cmake -DCMAKE_BUILD_TYPE=Debug \
+-DBUILD_LOADER=Off \
+-DBUILD_TESTS=Off \
+-DBUILD_LAYERS=Off \
+-DBUILD_VKTRACEVIEWER=Off \
+-DBUILD_LAYERSVT=Off \
+-DBUILD_DEMOS=Off \
+-DBUILD_VKJSON=Off \
+-DBUILD_VIA=Off \
+-DBUILD_VKTRACE_LAYER=Off \
+-DBUILD_VKTRACE_REPLAY=Off \
+-DBUILD_X64=Off \
+-DBUILD_VKTRACE=On ..
+make -j $cores vktrace
+popd
+)
+
 
 echo Builds succeeded
 exit 0

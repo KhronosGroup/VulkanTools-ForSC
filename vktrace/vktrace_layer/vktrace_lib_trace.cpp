@@ -1015,30 +1015,12 @@ VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkCreateDevice(VkPhysica
     ext_init_create_device(mdd(*pDevice), *pDevice, fpGetDeviceProcAddr, pCreateInfo->enabledExtensionCount,
                            pCreateInfo->ppEnabledExtensionNames);
 
-    // remove the loader extended createInfo structure
-    VkDeviceCreateInfo localCreateInfo;
-    memcpy(&localCreateInfo, pCreateInfo, sizeof(localCreateInfo));
-    localCreateInfo.pNext = strip_create_extensions(pCreateInfo->pNext);
-
-    // determine size of pnext chains
-    size_t pnextSize = 0;
-    {
-        if (pCreateInfo) pnextSize = get_struct_chain_size((void*)&localCreateInfo);
-        for (uint32_t iter = 0; iter < localCreateInfo.queueCreateInfoCount; iter++) {
-            pnextSize += get_struct_chain_size((void*)&localCreateInfo.pQueueCreateInfos[iter]);
-        }
-    }
-
-    CREATE_TRACE_PACKET(vkCreateDevice, pnextSize + sizeof(VkAllocationCallbacks) + sizeof(VkDevice));
+    CREATE_TRACE_PACKET(vkCreateDevice,
+                        get_struct_chain_size((void*)pCreateInfo) + sizeof(VkAllocationCallbacks) + sizeof(VkDevice));
     vktrace_set_packet_entrypoint_end_time(pHeader);
     pPacket = interpret_body_as_vkCreateDevice(pHeader);
     pPacket->physicalDevice = physicalDevice;
-    add_VkDeviceCreateInfo_to_packet(pHeader, (VkDeviceCreateInfo**)&(pPacket->pCreateInfo), &localCreateInfo);
-    //    vktrace_add_pnext_structs_to_trace_packet(pHeader, (void *)&pPacket->pCreateInfo, (void *)&localCreateInfo);
-    //    for (uint32_t iter = 0; iter < localCreateInfo.queueCreateInfoCount; iter++) {
-    //        vktrace_add_pnext_structs_to_trace_packet(pHeader, (void *)&pPacket->pCreateInfo->pQueueCreateInfos[iter],
-    //                                                  (void *)&localCreateInfo.pQueueCreateInfos[iter]);
-    //    }
+    add_VkDeviceCreateInfo_to_packet(pHeader, (VkDeviceCreateInfo**)&(pPacket->pCreateInfo), pCreateInfo);
     vktrace_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pAllocator), sizeof(VkAllocationCallbacks), NULL);
     vktrace_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pDevice), sizeof(VkDevice), pDevice);
     pPacket->result = result;
@@ -1674,6 +1656,70 @@ VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkEnumeratePhysicalDevic
         if (g_trimIsInTrim) {
             trim::write_packet(pHeader);
         } else {
+            vktrace_delete_trace_packet(&pHeader);
+        }
+    }
+    return result;
+}
+
+VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkEnumeratePhysicalDeviceGroupsKHX(VkInstance instance,
+                                                                                           uint32_t* pPhysicalDeviceGroupCount,
+                                                                                           VkPhysicalDeviceGroupPropertiesKHX* pPhysicalDeviceGroupProperties) {
+    VkResult result;
+    vktrace_trace_packet_header* pHeader;
+    packet_vkEnumeratePhysicalDeviceGroupsKHX* pPacket = NULL;
+    uint64_t startTime;
+    uint64_t endTime;
+    uint64_t vktraceStartTime = vktrace_get_time();
+    // TODO make sure can handle being called twice with pPD == 0
+    SEND_ENTRYPOINT_ID(vkEnumeratePhysicalDeviceGroupsKHX);
+    startTime = vktrace_get_time();
+    result = mid(instance)->instTable.EnumeratePhysicalDeviceGroupsKHX(instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
+    endTime = vktrace_get_time();
+    CREATE_TRACE_PACKET(
+        vkEnumeratePhysicalDeviceGroupsKHX,
+        sizeof(uint32_t) + ((pPhysicalDeviceGroupProperties && pPhysicalDeviceGroupCount) ? *pPhysicalDeviceGroupCount * sizeof(VkPhysicalDeviceGroupPropertiesKHX) : 0));
+    pHeader->vktrace_begin_time = vktraceStartTime;
+    pHeader->entrypoint_begin_time = startTime;
+    pHeader->entrypoint_end_time = endTime;
+    pPacket = interpret_body_as_vkEnumeratePhysicalDeviceGroupsKHX(pHeader);
+    pPacket->instance = instance;
+    vktrace_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pPhysicalDeviceGroupCount), sizeof(uint32_t), pPhysicalDeviceGroupCount);
+    vktrace_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pPhysicalDeviceGroupProperties),
+        *pPhysicalDeviceGroupCount * sizeof(VkPhysicalDeviceGroupPropertiesKHX), pPhysicalDeviceGroupProperties);
+    pPacket->result = result;
+    vktrace_finalize_buffer_address(pHeader, (void**)&(pPacket->pPhysicalDeviceGroupCount));
+    vktrace_finalize_buffer_address(pHeader, (void**)&(pPacket->pPhysicalDeviceGroupProperties));
+    if (!g_trimEnabled) {
+        // trim not enabled, send packet as usual
+        FINISH_TRACE_PACKET();
+    }
+    else {
+        vktrace_finalize_trace_packet(pHeader);
+        if (result == VK_SUCCESS) {
+            trim::ObjectInfo* pInfo = trim::get_Instance_objectInfo(instance);
+            if (pInfo != NULL && pPhysicalDeviceGroupCount != NULL && pPhysicalDeviceGroupProperties == NULL) {
+                pInfo->ObjectInfo.Instance.pEnumeratePhysicalDevicesCountPacket = trim::copy_packet(pHeader);
+            }
+
+            if (pPhysicalDeviceGroupProperties != NULL && pPhysicalDeviceGroupCount != NULL) {
+                if (pInfo != NULL) {
+                    pInfo->ObjectInfo.Instance.pEnumeratePhysicalDevicesPacket = trim::copy_packet(pHeader);
+                }
+
+                for (uint32_t iter = 0; iter < *pPhysicalDeviceGroupCount; iter++) {
+                    trim::ObjectInfo& PDInfo = trim::add_PhysicalDevice_object(pPhysicalDeviceGroupProperties[iter].physicalDevices[0]);
+                    PDInfo.belongsToInstance = instance;
+                    // Get the memory properties of the device
+                    mid(instance)->instTable.GetPhysicalDeviceMemoryProperties(
+                        pPhysicalDeviceGroupProperties[iter].physicalDevices[0], &PDInfo.ObjectInfo.PhysicalDevice.physicalDeviceMemoryProperties);
+                }
+            }
+        }
+        if (g_trimIsInTrim) {
+            trim::write_packet(pHeader);
+        }
+        else {
             vktrace_delete_trace_packet(&pHeader);
         }
     }
@@ -4352,6 +4398,7 @@ static inline PFN_vkVoidFunction layer_intercept_proc(const char* name) {
     if (!strcmp(name, "DestroyIndirectCommandsLayoutNVX")) return(PFN_vkVoidFunction)__HOOKED_vkDestroyIndirectCommandsLayoutNVX;
     if (!strcmp(name, "DestroyObjectTableNVX")) return (PFN_vkVoidFunction)__HOOKED_vkDestroyObjectTableNVX;
     if (!strcmp(name, "UnregisterObjectsNVX")) return (PFN_vkVoidFunction)__HOOKED_vkUnregisterObjectsNVX;
+    if (!strcmp(name, "EnumeratePhysicalDeviceGroupsKHX")) return (PFN_vkVoidFunction)__HOOKED_vkEnumeratePhysicalDeviceGroupsKHX;
 
     return NULL;
 }
@@ -4377,6 +4424,7 @@ static inline PFN_vkVoidFunction layer_intercept_instance_proc(const char* name)
     if (!strcmp(name, "EnumerateDeviceLayerProperties")) return (PFN_vkVoidFunction)__HOOKED_vkEnumerateDeviceLayerProperties;
     if (!strcmp(name, "EnumerateDeviceExtensionProperties"))
         return (PFN_vkVoidFunction)__HOOKED_vkEnumerateDeviceExtensionProperties;
+    if (!strcmp(name, "EnumeratePhysicalDeviceGroupsKHX")) return (PFN_vkVoidFunction)__HOOKED_vkEnumeratePhysicalDeviceGroupsKHX;
 
     return NULL;
 }
@@ -4517,6 +4565,9 @@ VKTRACER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL __HOOKED_vkGetInstanceP
                 return (PFN_vkVoidFunction)__HOOKED_vkGetPhysicalDeviceSurfaceFormatsKHR;
             if (!strcmp("vkGetPhysicalDeviceSurfacePresentModesKHR", funcName))
                 return (PFN_vkVoidFunction)__HOOKED_vkGetPhysicalDeviceSurfacePresentModesKHR;
+        }
+        if (!strcmp("vkEnumeratePhysicalDeviceGroupsKHX", funcName)) {
+            return (PFN_vkVoidFunction)__HOOKED_vkEnumeratePhysicalDeviceGroupsKHX;
         }
 #ifdef VK_USE_PLATFORM_XLIB_KHR
         if (instData->KHRXlibSurfaceEnabled) {

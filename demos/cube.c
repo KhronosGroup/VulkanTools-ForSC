@@ -364,7 +364,8 @@ struct demo {
     uint32_t last_late_id;   // 0 if no late images
 
     VkInstance inst;
-    VkPhysicalDevice gpu;
+    VkPhysicalDevice gpus[VK_MAX_DEVICE_GROUP_SIZE_KHX];
+    uint32_t gpu_count;
     VkDevice device;
     VkQueue graphics_queue;
     VkQueue present_queue;
@@ -393,7 +394,7 @@ struct demo {
     PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR;
     PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR;
     PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR;
-    PFN_vkAcquireNextImageKHR fpAcquireNextImageKHR;
+    PFN_vkAcquireNextImage2KHX fpAcquireNextImage2KHX;
     PFN_vkQueuePresentKHR fpQueuePresentKHR;
     PFN_vkGetRefreshCycleDurationGOOGLE fpGetRefreshCycleDurationGOOGLE;
     PFN_vkGetPastPresentationTimingGOOGLE fpGetPastPresentationTimingGOOGLE;
@@ -450,6 +451,8 @@ struct demo {
     PFN_vkDestroyDebugReportCallbackEXT DestroyDebugReportCallback;
     VkDebugReportCallbackEXT msg_callback;
     PFN_vkDebugReportMessageEXT DebugReportMessage;
+
+    PFN_vkEnumeratePhysicalDeviceGroupsKHX EnumeratePhysicalDeviceGroups;
 
     uint32_t current_buffer;
     uint32_t queue_family_count;
@@ -964,9 +967,17 @@ static void demo_draw(struct demo *demo) {
 
     do {
         // Get the index of the next available swapchain image:
-        err = demo->fpAcquireNextImageKHR(demo->device, demo->swapchain, UINT64_MAX,
-                                          demo->image_acquired_semaphores[demo->frame_index],
-                                          VK_NULL_HANDLE, &demo->current_buffer);
+        VkAcquireNextImageInfoKHX acquire_image_info = {
+            .sType = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHX,
+            .pNext = NULL,
+            .swapchain = demo->swapchain,
+            .timeout = UINT64_MAX,
+            .semaphore = demo->image_acquired_semaphores[demo->frame_index],
+            .fence = VK_NULL_HANDLE,
+            .deviceMask = 0xFFFFFFFF
+        };
+
+        err = demo->fpAcquireNextImage2KHX(demo->device, &acquire_image_info, &demo->current_buffer);
 
         if (err == VK_ERROR_OUT_OF_DATE_KHR) {
             // demo->swapchain is out of date (e.g. the window was resized) and
@@ -1134,18 +1145,18 @@ static void demo_prepare_buffers(struct demo *demo) {
     // Check the surface capabilities and formats
     VkSurfaceCapabilitiesKHR surfCapabilities;
     err = demo->fpGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        demo->gpu, demo->surface, &surfCapabilities);
+        demo->gpus[0], demo->surface, &surfCapabilities);
     assert(!err);
 
     uint32_t presentModeCount;
     err = demo->fpGetPhysicalDeviceSurfacePresentModesKHR(
-        demo->gpu, demo->surface, &presentModeCount, NULL);
+        demo->gpus[0], demo->surface, &presentModeCount, NULL);
     assert(!err);
     VkPresentModeKHR *presentModes =
         (VkPresentModeKHR *)malloc(presentModeCount * sizeof(VkPresentModeKHR));
     assert(presentModes);
     err = demo->fpGetPhysicalDeviceSurfacePresentModesKHR(
-        demo->gpu, demo->surface, &presentModeCount, presentModes);
+        demo->gpus[0], demo->surface, &presentModeCount, presentModes);
     assert(!err);
 
     VkExtent2D swapchainExtent;
@@ -1360,10 +1371,19 @@ static void demo_prepare_buffers(struct demo *demo) {
 }
 
 static void demo_prepare_depth(struct demo *demo) {
+
+    const VkImageFormatListCreateInfoKHR flist =  {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO_KHR,
+        .pNext = NULL,
+        .viewFormatCount=0,
+        .pViewFormats=NULL
+    };
+
+
     const VkFormat depth_format = VK_FORMAT_D16_UNORM;
     const VkImageCreateInfo image = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .pNext = NULL,
+        .pNext = &flist,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = depth_format,
         .extent = {demo->width, demo->height, 1},
@@ -1612,7 +1632,7 @@ static void demo_prepare_textures(struct demo *demo) {
     VkFormatProperties props;
     uint32_t i;
 
-    vkGetPhysicalDeviceFormatProperties(demo->gpu, tex_format, &props);
+    vkGetPhysicalDeviceFormatProperties(demo->gpus[0], tex_format, &props);
 
     for (i = 0; i < DEMO_TEXTURE_COUNT; i++) {
         VkResult U_ASSERT_ONLY err;
@@ -3083,6 +3103,7 @@ static void demo_init_vk(struct demo *demo) {
     /* Look for instance extensions */
     VkBool32 surfaceExtFound = 0;
     VkBool32 platformSurfaceExtFound = 0;
+    VkBool32 deviceGroupExtFound = 0;
     memset(demo->extension_names, 0, sizeof(demo->extension_names));
 
     err = vkEnumerateInstanceExtensionProperties(
@@ -3101,6 +3122,12 @@ static void demo_init_vk(struct demo *demo) {
                 surfaceExtFound = 1;
                 demo->extension_names[demo->enabled_extension_count++] =
                     VK_KHR_SURFACE_EXTENSION_NAME;
+            }
+            if (!strcmp(VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME,
+                        instance_extensions[i].extensionName)) {
+                deviceGroupExtFound = 1;
+                demo->extension_names[demo->enabled_extension_count++] =
+                    VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME;
             }
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
             if (!strcmp(VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
@@ -3177,6 +3204,15 @@ static void demo_init_vk(struct demo *demo) {
                  "look at the Getting Started guide for additional "
                  "information.\n",
                  "vkCreateInstance Failure");
+    }
+    if (!deviceGroupExtFound) {
+        ERR_EXIT("vkEnumerateInstanceExtensionProperties failed to find "
+            "the " VK_KHX_DEVICE_GROUP_EXTENSION_NAME
+            " extension.\n\nDo you have a compatible "
+            "Vulkan installable client driver (ICD) installed?\nPlease "
+            "look at the Getting Started guide for additional "
+            "information.\n",
+            "vkCreateInstance Failure");
     }
     if (!platformSurfaceExtFound) {
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
@@ -3288,7 +3324,7 @@ static void demo_init_vk(struct demo *demo) {
         inst_info.pNext = &dbgCreateInfoTemp;
     }
 
-    uint32_t gpu_count;
+    uint32_t group_count;
 
     err = vkCreateInstance(&inst_info, NULL, &demo->inst);
     if (err == VK_ERROR_INCOMPATIBLE_DRIVER) {
@@ -3307,17 +3343,24 @@ static void demo_init_vk(struct demo *demo) {
                  "vkCreateInstance Failure");
     }
 
-    /* Make initial call to query gpu_count, then second call for gpu info*/
-    err = vkEnumeratePhysicalDevices(demo->inst, &gpu_count, NULL);
-    assert(!err && gpu_count > 0);
+    // Get proc addr for EnumeratePhysicalDeviceGroups
+    demo->EnumeratePhysicalDeviceGroups =
+        (PFN_vkEnumeratePhysicalDeviceGroupsKHX)vkGetInstanceProcAddr(
+            demo->inst, "vkEnumeratePhysicalDeviceGroupsKHX");
 
-    if (gpu_count > 0) {
-        VkPhysicalDevice *physical_devices = malloc(sizeof(VkPhysicalDevice) * gpu_count);
-        err = vkEnumeratePhysicalDevices(demo->inst, &gpu_count, physical_devices);
+    /* Make initial call to query gpu_count, then second call for gpu info*/
+    err = demo->EnumeratePhysicalDeviceGroups(demo->inst, &group_count, NULL);
+    assert(!err && group_count > 0);
+
+    if (group_count > 0) {
+        VkPhysicalDeviceGroupPropertiesKHX *dev_group_props = malloc(sizeof(VkPhysicalDeviceGroupPropertiesKHX) * group_count);
+        err = demo->EnumeratePhysicalDeviceGroups(demo->inst, &group_count, dev_group_props);
         assert(!err);
-        /* For cube demo we just grab the first physical device */
-        demo->gpu = physical_devices[0];
-        free(physical_devices);
+        // Use first available device group
+        memset(demo->gpus, VK_NULL_HANDLE, VK_MAX_DEVICE_GROUP_SIZE_KHX);
+        memcpy(demo->gpus, dev_group_props[0].physicalDevices, sizeof(VkPhysicalDevice) * dev_group_props[0].physicalDeviceCount);
+		demo->gpu_count = dev_group_props[0].physicalDeviceCount;
+        free(dev_group_props);
     } else {
         ERR_EXIT("vkEnumeratePhysicalDevices reported zero accessible devices.\n\n"
                  "Do you have a compatible Vulkan installable client driver (ICD) "
@@ -3332,7 +3375,7 @@ static void demo_init_vk(struct demo *demo) {
     demo->enabled_extension_count = 0;
     memset(demo->extension_names, 0, sizeof(demo->extension_names));
 
-    err = vkEnumerateDeviceExtensionProperties(demo->gpu, NULL,
+    err = vkEnumerateDeviceExtensionProperties(demo->gpus[0], NULL,
                                                &device_extension_count, NULL);
     assert(!err);
 
@@ -3340,7 +3383,7 @@ static void demo_init_vk(struct demo *demo) {
         VkExtensionProperties *device_extensions =
             malloc(sizeof(VkExtensionProperties) * device_extension_count);
         err = vkEnumerateDeviceExtensionProperties(
-            demo->gpu, NULL, &device_extension_count, device_extensions);
+            demo->gpus[0], NULL, &device_extension_count, device_extensions);
         assert(!err);
 
         for (uint32_t i = 0; i < device_extension_count; i++) {
@@ -3457,23 +3500,23 @@ static void demo_init_vk(struct demo *demo) {
             break;
         }
     }
-    vkGetPhysicalDeviceProperties(demo->gpu, &demo->gpu_props);
+    vkGetPhysicalDeviceProperties(demo->gpus[0], &demo->gpu_props);
 
     /* Call with NULL data to get count */
-    vkGetPhysicalDeviceQueueFamilyProperties(demo->gpu,
+    vkGetPhysicalDeviceQueueFamilyProperties(demo->gpus[0],
                                              &demo->queue_family_count, NULL);
     assert(demo->queue_family_count >= 1);
 
     demo->queue_props = (VkQueueFamilyProperties *)malloc(
         demo->queue_family_count * sizeof(VkQueueFamilyProperties));
     vkGetPhysicalDeviceQueueFamilyProperties(
-        demo->gpu, &demo->queue_family_count, demo->queue_props);
+        demo->gpus[0], &demo->queue_family_count, demo->queue_props);
 
     // Query fine-grained feature support for this device.
     //  If app has specific feature requirements it should check supported
     //  features based on this query
     VkPhysicalDeviceFeatures physDevFeatures;
-    vkGetPhysicalDeviceFeatures(demo->gpu, &physDevFeatures);
+    vkGetPhysicalDeviceFeatures(demo->gpus[0], &physDevFeatures);
 
     GET_INSTANCE_PROC_ADDR(demo->inst, GetPhysicalDeviceSurfaceSupportKHR);
     GET_INSTANCE_PROC_ADDR(demo->inst, GetPhysicalDeviceSurfaceCapabilitiesKHR);
@@ -3493,9 +3536,16 @@ static void demo_create_device(struct demo *demo) {
     queues[0].pQueuePriorities = queue_priorities;
     queues[0].flags = 0;
 
+    VkDeviceGroupDeviceCreateInfoKHX device_group_ci = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO_KHX,
+        .pNext = NULL,
+        .physicalDeviceCount = demo->gpu_count,
+        .pPhysicalDevices  = demo->gpus
+    };
+
     VkDeviceCreateInfo device = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = NULL,
+        .pNext = &device_group_ci,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = queues,
         .enabledLayerCount = 0,
@@ -3514,7 +3564,8 @@ static void demo_create_device(struct demo *demo) {
         queues[1].flags = 0;
         device.queueCreateInfoCount = 2;
     }
-    err = vkCreateDevice(demo->gpu, &device, NULL, &demo->device);
+    
+    err = vkCreateDevice(demo->gpus[0], &device, NULL, &demo->device);
     assert(!err);
 }
 
@@ -3595,7 +3646,7 @@ static void demo_init_vk_swapchain(struct demo *demo) {
     VkBool32 *supportsPresent =
         (VkBool32 *)malloc(demo->queue_family_count * sizeof(VkBool32));
     for (uint32_t i = 0; i < demo->queue_family_count; i++) {
-        demo->fpGetPhysicalDeviceSurfaceSupportKHR(demo->gpu, i, demo->surface,
+        demo->fpGetPhysicalDeviceSurfaceSupportKHR(demo->gpus[0], i, demo->surface,
                                                    &supportsPresent[i]);
     }
 
@@ -3646,7 +3697,7 @@ static void demo_init_vk_swapchain(struct demo *demo) {
     GET_DEVICE_PROC_ADDR(demo->device, CreateSwapchainKHR);
     GET_DEVICE_PROC_ADDR(demo->device, DestroySwapchainKHR);
     GET_DEVICE_PROC_ADDR(demo->device, GetSwapchainImagesKHR);
-    GET_DEVICE_PROC_ADDR(demo->device, AcquireNextImageKHR);
+    GET_DEVICE_PROC_ADDR(demo->device, AcquireNextImage2KHX);
     GET_DEVICE_PROC_ADDR(demo->device, QueuePresentKHR);
     if (demo->VK_GOOGLE_display_timing_enabled) {
         GET_DEVICE_PROC_ADDR(demo->device, GetRefreshCycleDurationGOOGLE);
@@ -3665,12 +3716,12 @@ static void demo_init_vk_swapchain(struct demo *demo) {
 
     // Get the list of VkFormat's that are supported:
     uint32_t formatCount;
-    err = demo->fpGetPhysicalDeviceSurfaceFormatsKHR(demo->gpu, demo->surface,
+    err = demo->fpGetPhysicalDeviceSurfaceFormatsKHR(demo->gpus[0], demo->surface,
                                                      &formatCount, NULL);
     assert(!err);
     VkSurfaceFormatKHR *surfFormats =
         (VkSurfaceFormatKHR *)malloc(formatCount * sizeof(VkSurfaceFormatKHR));
-    err = demo->fpGetPhysicalDeviceSurfaceFormatsKHR(demo->gpu, demo->surface,
+    err = demo->fpGetPhysicalDeviceSurfaceFormatsKHR(demo->gpus[0], demo->surface,
                                                      &formatCount, surfFormats);
     assert(!err);
     // If the format list includes just one entry of VK_FORMAT_UNDEFINED,
@@ -3723,7 +3774,7 @@ static void demo_init_vk_swapchain(struct demo *demo) {
     demo->frame_index = 0;
 
     // Get Memory information and properties
-    vkGetPhysicalDeviceMemoryProperties(demo->gpu, &demo->memory_properties);
+    vkGetPhysicalDeviceMemoryProperties(demo->gpus[0], &demo->memory_properties);
 }
 
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)

@@ -128,6 +128,7 @@ class vkReplay {
     void manually_replay_vkDestroyBuffer(packet_vkDestroyBuffer* pPacket);
     void manually_replay_vkDestroyImage(packet_vkDestroyImage* pPacket);
     VkResult manually_replay_vkEnumeratePhysicalDevices(packet_vkEnumeratePhysicalDevices* pPacket);
+    VkResult manually_replay_vkEnumeratePhysicalDeviceGroupsKHX(packet_vkEnumeratePhysicalDeviceGroupsKHX* pPacket);
     // TODO138 : Many new functions in API now that we need to assess if manual code needed
     // VkResult manually_replay_vkGetPhysicalDeviceInfo(packet_vkGetPhysicalDeviceInfo* pPacket);
     // VkResult manually_replay_vkGetGlobalExtensionInfo(packet_vkGetGlobalExtensionInfo* pPacket);

@@ -426,6 +426,21 @@ VkResult vkReplay::manually_replay_vkCreateDevice(packet_vkCreateDevice *pPacket
             }
         }
 
+        // Handle VkDeviceGroupDeviceCreateInfoKHX
+        auto pNext = (VkApplicationInfo*)pPacket->pCreateInfo->pNext;
+        while (pNext != NULL) {
+            if (pNext->sType == VkStructureType::VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO_KHX) {
+                auto dev_group_ci = (VkDeviceGroupDeviceCreateInfoKHX*)pNext;
+
+                // Swap out physical device handles to mapped ones
+                for (uint32_t i = 0; i < dev_group_ci->physicalDeviceCount; ++i) {
+                    ((VkPhysicalDevice*)dev_group_ci->pPhysicalDevices)[i] = m_objMapper.remap_physicaldevices(dev_group_ci->pPhysicalDevices[i]);
+                }
+
+                break;
+            }
+        }
+
         replayResult = m_vkFuncs.CreateDevice(remappedPhysicalDevice, pPacket->pCreateInfo, NULL, &device);
         if (ppEnabledLayerNames) {
             // restore the packets CreateInfo struct
@@ -572,6 +587,47 @@ VkResult vkReplay::manually_replay_vkEnumeratePhysicalDevices(packet_vkEnumerate
             }
         }
         VKTRACE_DELETE(pDevices);
+    }
+    return replayResult;
+}
+
+VkResult vkReplay::manually_replay_vkEnumeratePhysicalDeviceGroupsKHX(packet_vkEnumeratePhysicalDeviceGroupsKHX *pPacket) {
+    // Force first device group to be chosen
+    VkResult replayResult = VK_ERROR_VALIDATION_FAILED_EXT;
+    if (!m_display->m_initedVK) {
+        uint32_t groupCount = *pPacket->pPhysicalDeviceGroupCount;
+        VkPhysicalDeviceGroupPropertiesKHX *pGroups = pPacket->pPhysicalDeviceGroupProperties;
+
+        VkInstance remappedInstance = m_objMapper.remap_instances(pPacket->instance);
+        if (remappedInstance == VK_NULL_HANDLE) {
+            vktrace_LogError("Skipping vkEnumeratePhysicalDevices() due to invalid remapped VkInstance.");
+            return VK_ERROR_VALIDATION_FAILED_EXT;
+        }
+        if (pPacket->pPhysicalDeviceGroupProperties != NULL) pGroups = VKTRACE_NEW_ARRAY(VkPhysicalDeviceGroupPropertiesKHX, groupCount);
+        replayResult = m_vkFuncs.EnumeratePhysicalDeviceGroupsKHX(remappedInstance, &groupCount, pGroups);
+
+        // TODO handle different number of physical devices/groups in trace versus replay
+        if (groupCount != *(pPacket->pPhysicalDeviceGroupCount)) {
+            vktrace_LogWarning("Number of physical device groups mismatched in replay %u versus trace %u.", groupCount,
+                *(pPacket->pPhysicalDeviceGroupCount));
+        }
+        else if (pGroups != NULL && pGroups[0].physicalDeviceCount != pPacket->pPhysicalDeviceGroupProperties[0].physicalDeviceCount) {
+            vktrace_LogWarning("Number of physical devices in selected group mismatched in replay %u versus trace %u.", groupCount,
+                *(pPacket->pPhysicalDeviceGroupCount));
+        }
+        else if (groupCount == 0) {
+            vktrace_LogError("vkEnumeratePhysicalDevices number of gpus is zero.");
+        }
+        else if (pGroups != NULL) {
+            vktrace_LogVerbose("Enumerated %d physical devices in the system.", groupCount);
+        }
+        // TODO handle enumeration results in a different order from trace to replay
+        for (uint32_t i = 0; i < groupCount; i++) {
+            if (pGroups != NULL) {
+                m_objMapper.add_to_physicaldevices_map(pPacket->pPhysicalDeviceGroupProperties[0].physicalDevices[i], pGroups->physicalDevices[i]);
+            }
+        }
+        VKTRACE_DELETE(pGroups);
     }
     return replayResult;
 }

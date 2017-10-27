@@ -113,6 +113,7 @@ approved_ext = [
                 'VK_NVX_device_generated_commands',
                 'VK_NVX_multiview_per_view_attributes',
                 'VK_EXT_sample_locations',
+                'VK_KHR_sampler_ycbcr_conversion',
                 ]
 
 api_exclusions = [

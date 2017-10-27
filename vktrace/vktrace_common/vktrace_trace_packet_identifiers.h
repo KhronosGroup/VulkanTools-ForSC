@@ -315,6 +315,8 @@ typedef enum _VKTRACE_TRACE_PACKET_ID_VK {
     VKTRACE_TPI_VK_vkGetSwapchainCounterEXT = 240,
     VKTRACE_TPI_VK_vkCmdSetSampleLocationsEXT = 241,
     VKTRACE_TPI_VK_vkGetPhysicalDeviceMultisamplePropertiesEXT = 242,
+    VKTRACE_TPI_VK_vkCreateSamplerYcbcrConversionKHR = 243,
+    VKTRACE_TPI_VK_vkDestroySamplerYcbcrConversionKHR = 244,
 } VKTRACE_TRACE_PACKET_ID_VK;
 
 #define VKTRACE_BIG_ENDIAN 1

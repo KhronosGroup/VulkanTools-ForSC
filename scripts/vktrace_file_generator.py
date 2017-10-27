@@ -112,6 +112,7 @@ approved_ext = [
                 'VK_NV_win32_keyed_mutex',
                 'VK_NVX_device_generated_commands',
                 'VK_NVX_multiview_per_view_attributes',
+                'VK_EXT_sample_locations',
                 ]
 
 api_exclusions = [

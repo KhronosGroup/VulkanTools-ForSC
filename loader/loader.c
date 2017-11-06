@@ -5173,6 +5173,9 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateDevice(VkPhysicalDevice physical
         }
     }
 
+    struct VkStructureHeader* caller_dgci_container = NULL;
+    VkDeviceGroupDeviceCreateInfo* caller_dgci = NULL;
+
     // Before we continue, If KHX_device_group is the list of enabled and viable extensions, then we then need to look for the
     // corresponding VkDeviceGroupDeviceCreateInfoKHX struct in the device list and replace all the physical device values (which
     // are really loader physical device terminator values) with the ICD versions.
@@ -5202,6 +5205,10 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateDevice(VkPhysicalDevice physical
                         phys_dev_array[phys_dev] = cur_term->phys_dev;
                     }
                     temp_struct->pPhysicalDevices = phys_dev_array;
+
+                    // Keep track of pointers to restore replacement
+                    caller_dgci_container = pPrev;
+                    caller_dgci = cur_struct;
 
                     // Replace the old struct in the pNext chain with this one.
                     pPrev->pNext = (const void *)temp_struct;
@@ -5292,6 +5299,11 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateDevice(VkPhysicalDevice physical
 out:
     if (NULL != icd_exts.list) {
         loader_destroy_generic_list(icd_term->this_instance, (struct loader_generic_list *)&icd_exts);
+    }
+
+    // Restore pNext pointer to old VkDeviceGroupDeviceCreateInfoKHX
+    if (caller_dgci_container && caller_dgci) {
+        caller_dgci_container->pNext = caller_dgci;
     }
 
     return res;

@@ -88,20 +88,12 @@
         exit(1);                              \
     } while (0)
 
-#if defined(PLATFORM_LINUX)
-// Page table entry dirty bit.
-// See https://www.kernel.org/doc/Documentation/vm/pagemap.txt
-#define PTE_DIRTY_BIT (1ULL << 55)
-#endif
-
 VkDeviceSize& ref_target_range_size();
 bool getPageGuardEnableFlag();
 bool getEnableReadPMBFlag();
 bool getEnablePageGuardLazyCopyFlag();
-#if defined(WIN32) || defined(ANDROID)
 void setPageGuardExceptionHandler();
 void removePageGuardExceptionHandler();
-#endif
 size_t pageguardGetAdjustedSize(size_t size);
 void* pageguardAllocateMemory(size_t size);
 void pageguardFreeMemory(void* pMemory);
@@ -121,7 +113,7 @@ void resetAllReadFlagAndPageGuard();
 
 #if defined(WIN32)
 LONG WINAPI PageGuardExceptionHandler(PEXCEPTION_POINTERS ExceptionInfo);
-#elif defined(ANDROID)
+#else
 void PageGuardExceptionHandler(int sig, siginfo_t* si, void* unused);
 #endif
 

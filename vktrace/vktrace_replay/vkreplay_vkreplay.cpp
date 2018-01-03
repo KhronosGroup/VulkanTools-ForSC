@@ -603,7 +603,11 @@ VkResult vkReplay::manually_replay_vkEnumeratePhysicalDeviceGroups(packet_vkEnum
             vktrace_LogError("Skipping vkEnumeratePhysicalDevices() due to invalid remapped VkInstance.");
             return VK_ERROR_VALIDATION_FAILED_EXT;
         }
-        if (pPacket->pPhysicalDeviceGroupProperties != NULL) pGroups = VKTRACE_NEW_ARRAY(VkPhysicalDeviceGroupProperties, groupCount);
+
+        if (pGroups) {
+            if (pPacket->pPhysicalDeviceGroupProperties != NULL)
+                pGroups = VKTRACE_NEW_ARRAY(VkPhysicalDeviceGroupProperties, groupCount);
+        }
         replayResult = m_vkFuncs.EnumeratePhysicalDeviceGroups(remappedInstance, &groupCount, pGroups);
 
         // TODO handle different number of physical devices/groups in trace versus replay
@@ -627,7 +631,8 @@ VkResult vkReplay::manually_replay_vkEnumeratePhysicalDeviceGroups(packet_vkEnum
                 m_objMapper.add_to_physicaldevices_map(pPacket->pPhysicalDeviceGroupProperties[0].physicalDevices[i], pGroups->physicalDevices[i]);
             }
         }
-        VKTRACE_DELETE(pGroups);
+        if (pGroups)
+            VKTRACE_DELETE(pGroups);
     }
     return replayResult;
 }

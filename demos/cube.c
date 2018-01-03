@@ -394,7 +394,7 @@ struct demo {
     PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR;
     PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR;
     PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR;
-    PFN_vkAcquireNextImage2KHR fpAcquireNextImage2KHX;
+    PFN_vkAcquireNextImage2KHR fpAcquireNextImage2KHR;
     PFN_vkQueuePresentKHR fpQueuePresentKHR;
     PFN_vkGetRefreshCycleDurationGOOGLE fpGetRefreshCycleDurationGOOGLE;
     PFN_vkGetPastPresentationTimingGOOGLE fpGetPastPresentationTimingGOOGLE;
@@ -977,7 +977,7 @@ static void demo_draw(struct demo *demo) {
             .deviceMask = 0xFFFFFFFF
         };
 
-        err = demo->fpAcquireNextImage2KHX(demo->device, &acquire_image_info, &demo->current_buffer);
+        err = demo->fpAcquireNextImage2KHR(demo->device, &acquire_image_info, &demo->current_buffer);
 
         if (err == VK_ERROR_OUT_OF_DATE_KHR) {
             // demo->swapchain is out of date (e.g. the window was resized) and
@@ -3613,9 +3613,9 @@ static void demo_init_vk_swapchain(struct demo *demo) {
     GET_DEVICE_PROC_ADDR(demo->device, GetSwapchainImagesKHR);
 
     if (!g_gdpa) g_gdpa = (PFN_vkGetDeviceProcAddr)vkGetInstanceProcAddr(demo->inst, "vkGetDeviceProcAddr");
-        demo->fpAcquireNextImage2KHX = (PFN_vkAcquireNextImage2KHR)g_gdpa(demo->device, "vkAcquireNextImage2KHX");
-    if (demo->fpAcquireNextImage2KHX == NULL) {
-        ERR_EXIT("vkGetDeviceProcAddr failed to find vkAcquireNextImage2KHX", "vkGetDeviceProcAddr Failure");
+    GET_DEVICE_PROC_ADDR(demo->device, AcquireNextImage2KHR);
+    if (demo->fpAcquireNextImage2KHR == NULL) {
+        ERR_EXIT("vkGetDeviceProcAddr failed to find vkAcquireNextImage2KHR", "vkGetDeviceProcAddr Failure");
     }
 
     GET_DEVICE_PROC_ADDR(demo->device, QueuePresentKHR);

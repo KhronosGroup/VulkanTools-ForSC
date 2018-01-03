@@ -23,6 +23,7 @@
 
 LIBRARY VkLayer_vktrace_layer
 EXPORTS
+__HOOKED_vkAcquireNextImage2KHR
 __HOOKED_vkAcquireNextImageKHR
 __HOOKED_vkAllocateCommandBuffers
 __HOOKED_vkAllocateDescriptorSets

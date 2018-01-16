@@ -1741,31 +1741,31 @@ VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkEnumeratePhysicalDevic
     return result;
 }
 
-VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkEnumeratePhysicalDeviceGroups(VkInstance instance,
+VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkEnumeratePhysicalDeviceGroupsKHX(VkInstance instance,
                                                                                            uint32_t* pPhysicalDeviceGroupCount,
-                                                                                           VkPhysicalDeviceGroupProperties* pPhysicalDeviceGroupProperties) {
+                                                                                           VkPhysicalDeviceGroupPropertiesKHX* pPhysicalDeviceGroupProperties) {
     VkResult result;
     vktrace_trace_packet_header* pHeader;
-    packet_vkEnumeratePhysicalDeviceGroups* pPacket = NULL;
+    packet_vkEnumeratePhysicalDeviceGroupsKHX* pPacket = NULL;
     uint64_t startTime;
     uint64_t endTime;
     uint64_t vktraceStartTime = vktrace_get_time();
     // TODO make sure can handle being called twice with pPD == 0
-    SEND_ENTRYPOINT_ID(vkEnumeratePhysicalDeviceGroups);
+    SEND_ENTRYPOINT_ID(vkEnumeratePhysicalDeviceGroupsKHX);
     startTime = vktrace_get_time();
-    result = mid(instance)->instTable.EnumeratePhysicalDeviceGroups(instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
+    result = mid(instance)->instTable.EnumeratePhysicalDeviceGroupsKHX(instance, pPhysicalDeviceGroupCount, pPhysicalDeviceGroupProperties);
     endTime = vktrace_get_time();
     CREATE_TRACE_PACKET(
-        vkEnumeratePhysicalDeviceGroups,
-        sizeof(uint32_t) + ((pPhysicalDeviceGroupProperties && pPhysicalDeviceGroupCount) ? *pPhysicalDeviceGroupCount * sizeof(VkPhysicalDeviceGroupProperties) : 0));
+        vkEnumeratePhysicalDeviceGroupsKHX,
+        sizeof(uint32_t) + ((pPhysicalDeviceGroupProperties && pPhysicalDeviceGroupCount) ? *pPhysicalDeviceGroupCount * sizeof(VkPhysicalDeviceGroupPropertiesKHX) : 0));
     pHeader->vktrace_begin_time = vktraceStartTime;
     pHeader->entrypoint_begin_time = startTime;
     pHeader->entrypoint_end_time = endTime;
-    pPacket = interpret_body_as_vkEnumeratePhysicalDeviceGroups(pHeader);
+    pPacket = interpret_body_as_vkEnumeratePhysicalDeviceGroupsKHX(pHeader);
     pPacket->instance = instance;
     vktrace_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pPhysicalDeviceGroupCount), sizeof(uint32_t), pPhysicalDeviceGroupCount);
     vktrace_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pPhysicalDeviceGroupProperties),
-        *pPhysicalDeviceGroupCount * sizeof(VkPhysicalDeviceGroupProperties), pPhysicalDeviceGroupProperties);
+        *pPhysicalDeviceGroupCount * sizeof(VkPhysicalDeviceGroupPropertiesKHX), pPhysicalDeviceGroupProperties);
     pPacket->result = result;
     vktrace_finalize_buffer_address(pHeader, (void**)&(pPacket->pPhysicalDeviceGroupCount));
     vktrace_finalize_buffer_address(pHeader, (void**)&(pPacket->pPhysicalDeviceGroupProperties));
@@ -4385,7 +4385,7 @@ VKTRACER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL __HOOKED_vkGetDevicePro
             if (!strcmp("vkDestroySwapchainKHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkDestroySwapchainKHR;
             if (!strcmp("vkGetSwapchainImagesKHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkGetSwapchainImagesKHR;
             if (!strcmp("vkAcquireNextImageKHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkAcquireNextImageKHR;
-            if (!strcmp("vkAcquireNextImage2KHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkAcquireNextImage2KHR;
+            if (!strcmp("vkAcquireNextImage2KHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkAcquireNextImage2KHX;
             if (!strcmp("vkQueuePresentKHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkQueuePresentKHR;
         }
     }
@@ -4471,8 +4471,8 @@ VKTRACER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL __HOOKED_vkGetInstanceP
             if (!strcmp("vkGetPhysicalDeviceSurfacePresentModesKHR", funcName))
                 return (PFN_vkVoidFunction)__HOOKED_vkGetPhysicalDeviceSurfacePresentModesKHR;
         }
-        if (!strcmp("vkEnumeratePhysicalDeviceGroups", funcName)) {
-            return (PFN_vkVoidFunction)__HOOKED_vkEnumeratePhysicalDeviceGroups;
+        if (!strcmp("vkEnumeratePhysicalDeviceGroupsKHX", funcName)) {
+            return (PFN_vkVoidFunction)__HOOKED_vkEnumeratePhysicalDeviceGroupsKHX;
         }
 #ifdef VK_USE_PLATFORM_XLIB_KHR
         if (instData->KHRXlibSurfaceEnabled) {

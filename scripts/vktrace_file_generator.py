@@ -2348,6 +2348,7 @@ class VkTraceFileOutputGenerator(OutputGenerator):
                                          'vkCreateObjectTableNVX',
                                          'vkCmdProcessCommandsNVX',
                                          'vkCreateIndirectCommandsLayoutNVX',
+                                         'vkAcquireNextImage2KHX',
                                          # TODO: VK_EXT_display_control
                                          ]
 

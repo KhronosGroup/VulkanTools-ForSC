@@ -429,8 +429,8 @@ VkResult vkReplay::manually_replay_vkCreateDevice(packet_vkCreateDevice *pPacket
         // Handle VkDeviceGroupDeviceCreateInfoKHX
         auto pNext = (VkApplicationInfo*)pPacket->pCreateInfo->pNext;
         while (pNext != NULL) {
-            if (pNext->sType == VkStructureType::VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO) {
-                auto dev_group_ci = (VkDeviceGroupDeviceCreateInfo*)pNext;
+            if (pNext->sType == VkStructureType::VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO_KHX) {
+                auto dev_group_ci = (VkDeviceGroupDeviceCreateInfoKHX*)pNext;
 
                 // Swap out physical device handles to mapped ones
                 for (uint32_t i = 0; i < dev_group_ci->physicalDeviceCount; ++i) {
@@ -591,12 +591,12 @@ VkResult vkReplay::manually_replay_vkEnumeratePhysicalDevices(packet_vkEnumerate
     return replayResult;
 }
 
-VkResult vkReplay::manually_replay_vkEnumeratePhysicalDeviceGroups(packet_vkEnumeratePhysicalDeviceGroups *pPacket) {
+VkResult vkReplay::manually_replay_vkEnumeratePhysicalDeviceGroupsKHX(packet_vkEnumeratePhysicalDeviceGroupsKHX *pPacket) {
     // Force first device group to be chosen
     VkResult replayResult = VK_ERROR_VALIDATION_FAILED_EXT;
     if (!m_display->m_initedVK) {
         uint32_t groupCount = *pPacket->pPhysicalDeviceGroupCount;
-        VkPhysicalDeviceGroupProperties *pGroups = pPacket->pPhysicalDeviceGroupProperties;
+        VkPhysicalDeviceGroupPropertiesKHX *pGroups = pPacket->pPhysicalDeviceGroupProperties;
 
         VkInstance remappedInstance = m_objMapper.remap_instances(pPacket->instance);
         if (remappedInstance == VK_NULL_HANDLE) {
@@ -606,9 +606,9 @@ VkResult vkReplay::manually_replay_vkEnumeratePhysicalDeviceGroups(packet_vkEnum
 
         if (pGroups) {
             if (pPacket->pPhysicalDeviceGroupProperties != NULL)
-                pGroups = VKTRACE_NEW_ARRAY(VkPhysicalDeviceGroupProperties, groupCount);
+                pGroups = VKTRACE_NEW_ARRAY(VkPhysicalDeviceGroupPropertiesKHX, groupCount);
         }
-        replayResult = m_vkFuncs.EnumeratePhysicalDeviceGroups(remappedInstance, &groupCount, pGroups);
+        replayResult = m_vkFuncs.EnumeratePhysicalDeviceGroupsKHX(remappedInstance, &groupCount, pGroups);
 
         // TODO handle different number of physical devices/groups in trace versus replay
         if (groupCount != *(pPacket->pPhysicalDeviceGroupCount)) {

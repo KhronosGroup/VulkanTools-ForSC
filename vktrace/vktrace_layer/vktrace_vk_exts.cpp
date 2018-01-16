@@ -124,7 +124,7 @@ void ext_init_create_device(layer_device_data* devData, VkDevice dev, PFN_vkGetD
     devData->devTable.DestroySwapchainKHR = (PFN_vkDestroySwapchainKHR)gpa(dev, "vkDestroySwapchainKHR");
     devData->devTable.GetSwapchainImagesKHR = (PFN_vkGetSwapchainImagesKHR)gpa(dev, "vkGetSwapchainImagesKHR");
     devData->devTable.AcquireNextImageKHR = (PFN_vkAcquireNextImageKHR)gpa(dev, "vkAcquireNextImageKHR");
-    devData->devTable.AcquireNextImage2KHR = (PFN_vkAcquireNextImage2KHR)gpa(dev, "vkAcquireNextImage2KHR");
+    devData->devTable.AcquireNextImage2KHX = (PFN_vkAcquireNextImage2KHX)gpa(dev, "vkAcquireNextImage2KHX");
     devData->devTable.QueuePresentKHR = (PFN_vkQueuePresentKHR)gpa(dev, "vkQueuePresentKHR");
 
     devData->KHRDeviceSwapchainEnabled = false;

@@ -364,7 +364,7 @@ struct demo {
     uint32_t last_late_id;   // 0 if no late images
 
     VkInstance inst;
-    VkPhysicalDevice gpus[VK_MAX_DEVICE_GROUP_SIZE];
+    VkPhysicalDevice gpus[VK_MAX_DEVICE_GROUP_SIZE_KHX];
     uint32_t gpu_count;
     VkDevice device;
     VkQueue graphics_queue;
@@ -394,7 +394,7 @@ struct demo {
     PFN_vkCreateSwapchainKHR fpCreateSwapchainKHR;
     PFN_vkDestroySwapchainKHR fpDestroySwapchainKHR;
     PFN_vkGetSwapchainImagesKHR fpGetSwapchainImagesKHR;
-    PFN_vkAcquireNextImage2KHR fpAcquireNextImage2KHR;
+    PFN_vkAcquireNextImage2KHX fpAcquireNextImage2KHX;
     PFN_vkQueuePresentKHR fpQueuePresentKHR;
     PFN_vkGetRefreshCycleDurationGOOGLE fpGetRefreshCycleDurationGOOGLE;
     PFN_vkGetPastPresentationTimingGOOGLE fpGetPastPresentationTimingGOOGLE;
@@ -452,7 +452,7 @@ struct demo {
     VkDebugReportCallbackEXT msg_callback;
     PFN_vkDebugReportMessageEXT DebugReportMessage;
 
-    PFN_vkEnumeratePhysicalDeviceGroups EnumeratePhysicalDeviceGroups;
+    PFN_vkEnumeratePhysicalDeviceGroupsKHX EnumeratePhysicalDeviceGroups;
 
     uint32_t current_buffer;
     uint32_t queue_family_count;
@@ -967,8 +967,8 @@ static void demo_draw(struct demo *demo) {
 
     do {
         // Get the index of the next available swapchain image:
-        VkAcquireNextImageInfoKHR acquire_image_info = {
-            .sType = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR,
+        VkAcquireNextImageInfoKHX acquire_image_info = {
+            .sType = VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHX,
             .pNext = NULL,
             .swapchain = demo->swapchain,
             .timeout = UINT64_MAX,
@@ -977,7 +977,7 @@ static void demo_draw(struct demo *demo) {
             .deviceMask = 0xFFFFFFFF
         };
 
-        err = demo->fpAcquireNextImage2KHR(demo->device, &acquire_image_info, &demo->current_buffer);
+        err = demo->fpAcquireNextImage2KHX(demo->device, &acquire_image_info, &demo->current_buffer);
 
         if (err == VK_ERROR_OUT_OF_DATE_KHR) {
             // demo->swapchain is out of date (e.g. the window was resized) and
@@ -3259,19 +3259,20 @@ static void demo_init_vk(struct demo *demo) {
 
     // Get proc addr for EnumeratePhysicalDeviceGroups
     demo->EnumeratePhysicalDeviceGroups =
-        (PFN_vkEnumeratePhysicalDeviceGroups)vkGetInstanceProcAddr(
-            demo->inst, "vkEnumeratePhysicalDeviceGroups");
+        (PFN_vkEnumeratePhysicalDeviceGroupsKHX)vkGetInstanceProcAddr(
+            demo->inst, "vkEnumeratePhysicalDeviceGroupsKHX");
 
     /* Make initial call to query gpu_count, then second call for gpu info*/
+    printf("%p\n", demo->EnumeratePhysicalDeviceGroups);
     err = demo->EnumeratePhysicalDeviceGroups(demo->inst, &group_count, NULL);
     assert(!err && group_count > 0);
 
     if (group_count > 0) {
-        VkPhysicalDeviceGroupProperties *dev_group_props = malloc(sizeof(VkPhysicalDeviceGroupProperties) * group_count);
+        VkPhysicalDeviceGroupPropertiesKHX *dev_group_props = malloc(sizeof(VkPhysicalDeviceGroupPropertiesKHX) * group_count);
         err = demo->EnumeratePhysicalDeviceGroups(demo->inst, &group_count, dev_group_props);
         assert(!err);
         // Use first available device group
-        memset(demo->gpus, VK_NULL_HANDLE, VK_MAX_DEVICE_GROUP_SIZE);
+        memset(demo->gpus, VK_NULL_HANDLE, VK_MAX_DEVICE_GROUP_SIZE_KHX);
         memcpy(demo->gpus, dev_group_props[0].physicalDevices, sizeof(VkPhysicalDevice) * dev_group_props[0].physicalDeviceCount);
 		demo->gpu_count = dev_group_props[0].physicalDeviceCount;
         free(dev_group_props);
@@ -3450,8 +3451,8 @@ static void demo_create_device(struct demo *demo) {
     queues[0].pQueuePriorities = queue_priorities;
     queues[0].flags = 0;
 
-    VkDeviceGroupDeviceCreateInfo device_group_ci = {
-        .sType = VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO,
+    VkDeviceGroupDeviceCreateInfoKHX device_group_ci = {
+        .sType = VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO_KHX,
         .pNext = NULL,
         .physicalDeviceCount = demo->gpu_count,
         .pPhysicalDevices  = demo->gpus
@@ -3613,8 +3614,8 @@ static void demo_init_vk_swapchain(struct demo *demo) {
     GET_DEVICE_PROC_ADDR(demo->device, GetSwapchainImagesKHR);
 
     if (!g_gdpa) g_gdpa = (PFN_vkGetDeviceProcAddr)vkGetInstanceProcAddr(demo->inst, "vkGetDeviceProcAddr");
-    GET_DEVICE_PROC_ADDR(demo->device, AcquireNextImage2KHR);
-    if (demo->fpAcquireNextImage2KHR == NULL) {
+    GET_DEVICE_PROC_ADDR(demo->device, AcquireNextImage2KHX);
+    if (demo->fpAcquireNextImage2KHX == NULL) {
         ERR_EXIT("vkGetDeviceProcAddr failed to find vkAcquireNextImage2KHR", "vkGetDeviceProcAddr Failure");
     }
 

@@ -5174,7 +5174,7 @@ VKAPI_ATTR VkResult VKAPI_CALL terminator_CreateDevice(VkPhysicalDevice physical
     }
 
     struct VkStructureHeader* caller_dgci_container = NULL;
-    VkDeviceGroupDeviceCreateInfo* caller_dgci = NULL;
+    VkDeviceGroupDeviceCreateInfoKHX* caller_dgci = NULL;
 
     // Before we continue, If KHX_device_group is the list of enabled and viable extensions, then we then need to look for the
     // corresponding VkDeviceGroupDeviceCreateInfoKHX struct in the device list and replace all the physical device values (which

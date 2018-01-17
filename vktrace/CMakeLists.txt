@@ -598,6 +598,7 @@ set(GENERATED_FILES_DIR ${CMAKE_BINARY_DIR}/vktrace)
 
 add_subdirectory(vktrace_common)
 add_subdirectory(vktrace_trace)
+add_subdirectory(vktrace_serialization)
 
 option(BUILD_VKTRACE_LAYER "Build vktrace_layer" ON)
 if(BUILD_VKTRACE_LAYER)

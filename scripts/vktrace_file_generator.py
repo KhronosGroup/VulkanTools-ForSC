@@ -297,6 +297,30 @@ class VkTraceFileOutputGenerator(OutputGenerator):
         write(dest_file, file=self.outFile);
         # Finish processing in superclass
         OutputGenerator.endFile(self)
+
+    def GetMemberInfo(self, member, lens=None):
+        # Get type and name of member
+        info = self.getTypeNameTuple(member)
+        type = info[0]
+        name = info[1]
+        cdecl = self.makeCParamDecl(member, 0)
+        # Check for parameter name in lens set
+        iscount = True if lens and name in lens else False
+        len = self.getLen(member)
+        isconst = True if 'const' in cdecl else False
+        ispointer = self.paramIsPointer(member)
+        isstaticarray = self.paramIsStaticArray(member)
+        handle = self.registry.tree.find("types/type/[name='" + type + "'][@category='handle']")
+        return self.CommandParam(type=type,
+                                name=name,
+                                ispointer=ispointer,
+                                isstaticarray=isstaticarray,
+                                isconst=isconst,
+                                iscount=iscount,
+                                len=len,
+                                cdecl=cdecl,
+                                feature_protect=self.featureExtraProtect,
+                                handle=handle)
     #
     # Called for each type -- if the type is a struct/union, grab the metadata
     def genType(self, typeinfo, typeName):
@@ -324,24 +348,7 @@ class VkTraceFileOutputGenerator(OutputGenerator):
         # Generate member info
         membersInfo = []
         for member in members:
-            # Get the member's type and name
-            info = self.getTypeNameTuple(member)
-            type = info[0]
-            name = info[1]
-            cdecl = self.makeCParamDecl(member, 1)
-            # Store pointer/array/string info
-            isstaticarray = self.paramIsStaticArray(member)
-            handle = self.registry.tree.find("types/type/[name='" + type + "'][@category='handle']")
-            membersInfo.append(self.CommandParam(type=type,
-                                                 name=name,
-                                                 ispointer=self.paramIsPointer(member),
-                                                 isstaticarray=isstaticarray,
-                                                 isconst=True if 'const' in cdecl else False,
-                                                 iscount=True if name in lens else False,
-                                                 len=self.getLen(member),
-                                                 cdecl=cdecl,
-                                                 feature_protect=self.featureExtraProtect,
-                                                 handle=handle))
+            membersInfo.append(self.GetMemberInfo(member, lens))
         self.typeMembers.append(self.TypeMemberData(name=typeName, members=membersInfo, ifdef_protect=self.featureExtraProtect))
 
     def genGroup(self, groupinfo, groupName):
@@ -353,7 +360,7 @@ class VkTraceFileOutputGenerator(OutputGenerator):
         ispointer = False
         for elem in param:
             if ((elem.tag is not 'type') and (elem.tail is not None)) and '*' in elem.tail:
-                ispointer = True
+                ispointer = elem.tail.count('*')
         return ispointer
     #
     # Check if the parameter passed in is a static array
@@ -455,28 +462,7 @@ class VkTraceFileOutputGenerator(OutputGenerator):
         membersInfo = []
         constains_extension_structs = False
         for member in members:
-            # Get type and name of member
-            info = self.getTypeNameTuple(member)
-            type = info[0]
-            name = info[1]
-            cdecl = self.makeCParamDecl(member, 0)
-            # Check for parameter name in lens set
-            iscount = True if name in lens else False
-            len = self.getLen(member)
-            isconst = True if 'const' in cdecl else False
-            ispointer = self.paramIsPointer(member)
-            isstaticarray = self.paramIsStaticArray(member)
-            handle = self.registry.tree.find("types/type/[name='" + type + "'][@category='handle']")
-            membersInfo.append(self.CommandParam(type=type,
-                                                 name=name,
-                                                 ispointer=ispointer,
-                                                 isstaticarray=isstaticarray,
-                                                 isconst=isconst,
-                                                 iscount=iscount,
-                                                 len=len,
-                                                 cdecl=cdecl,
-                                                 feature_protect=self.featureExtraProtect,
-                                                 handle=handle))
+            membersInfo.append(self.GetMemberInfo(member, lens))
         self.cmdMembers.append(self.CmdMemberData(name=cmdname, members=membersInfo))
         self.cmd_info_data.append(self.CmdInfoData(name=cmdname, cmdinfo=cmdinfo))
         self.cmd_extension_names.append(self.cmd_extension_data(name=cmdname, extension_name=self.current_feature_name))
@@ -2921,30 +2907,126 @@ class VkTraceFileOutputGenerator(OutputGenerator):
 
         ### Type Mapping ###
         if member.type in self.ProtobufTypeMap:
-            if member.ispointer:
-                if member.name[:2] == 'pp': # TODO: Find a better way to check for double pointers
-                    return self.ProtobufTypeMap[member.type][2]
-                else:
-                    return self.ProtobufTypeMap[member.type][1]
-            else:
-                return self.ProtobufTypeMap[member.type][0]
+            return self.ProtobufTypeMap[member.type][member.ispointer] # ispointer is 0 if non-pointer, 1 if pointer, 2 if double
 
         # Use the code type by default, assuming there will be a message type to stand for it if it is not primitive        
         return member.type
-
+        
 
     def GenerateTraceSerializationHeader(self):
+        cmd_info_dict = dict(self.cmd_info_data)
 
-        output = "// test"
+        output = ('#include "vulkan/vulkan.h"\n'
+                  '#include "vktrace_vk.pb.h"\n\n')
+
+        for cmd in self.cmdMembers:
+            cmdinfo = cmd_info_dict[cmd.name]
+            proto = self.GetMemberInfo(cmdinfo.elem.find('.//proto'))
+
+            ### Serialize ###
+            output += self.GenerateSerializeCmdStub(cmd, proto, True)
+            output += ';\n'
+
+            ### Deserialize ###
+            output += self.GenerateSerializeCmdStub(cmd, proto, False)
+            output += ';\n\n'
 
         return output
 
 
     def GenerateTraceSerializationCpp(self):
+        cmd_info_dict = dict(self.cmd_info_data)
 
-        output = "// test"
+        output = '#include "vktrace_serialization.h"\n\n'
+
+        for struct in self.typeMembers:
+            if struct.name in self.ProtobufTypeMap:
+                continue # Mapped types will not need a function
+
+        for cmd in self.cmdMembers:
+            cmdinfo = cmd_info_dict[cmd.name]
+            proto = self.GetMemberInfo(cmdinfo.elem.find('.//proto'))
+
+            ### Serialize ###
+            output += self.GenerateSerializeCmdStub(cmd, proto, True)
+            output += ' {\n'
+            output += '    // Assign all fields to equivalent protobuf obj\n'
+            output += '    vktrace::%s temp;\n' % cmd.name
+
+            for member in cmd.members:
+                if member.type in self.ProtobufTypeMap: # Mapped type can be assigned directly
+                    output += '    temp.set_%s(%s);\n' % (member.name, member.name)
+                else:                                   # Otherwise call the converter
+                    output += '    temp.set_%s(get_proto_obj_%s(%s));\n' % (member.name, member.type, member.name)
+
+            output += '    temp.SerializeToOstream(dest);\n'
+            output += '}\n\n'
+
+            ### Deserialize ###
+            output += self.GenerateSerializeCmdStub(cmd, proto, False)
+            output += ' {\n'
+            output += '    // Retrieve all fields from equivalent protobuf obj\n'
+            output += '    vktrace::%s temp;\n' % cmd.name
+            output += '    temp.ParseFromIStream(src);\n'
+
+            for member in cmd.members:
+                if member.type in self.ProtobufTypeMap: # Mapped type can be assigned directly
+                    output += '    %s = temp.%s();\n' % (member.name, member.name)
+                else:                                   # Otherwise call the converter
+                    output += '    %s = from_proto_obj_%s(%s);\n' % (member.name, member.type, member.name)
+
+            output += '}\n\n\n'
 
         return output
+
+
+    def GenerateGetProtoObjStub(self, struct, isSerialize):
+        output = 'vktrace::%s get_proto_obj_%s(' % (struct.type, struct.type)
+        return output
+
+
+    def GenerateSerializeCmdStub(self, cmd, proto, isSerialize):
+        # Function name
+        output = 'void '
+        if isSerialize:
+            output += 'serialize'
+        else:
+            output += 'deserialize'
+        output += '_%s(' % cmd.name
+
+        if isSerialize:
+            output += 'std::ostream* dest '
+        else:
+            output += 'std::istream* src '
+        
+        # Parameters
+        for member in cmd.members:
+            output += ', %s' % member.type
+            for i in range(member.ispointer):
+                output += '*'
+            if not isSerialize: # Parameters are pass-by-reference during deserialization
+                output += '&'
+            output += ' %s' % member.name
+
+        # Return value
+        if proto.type != 'void' or proto.ispointer:
+            output += ', %s' % proto.type
+            for i in range(proto.ispointer):
+                output += '*'
+            if not isSerialize: # Parameters are pass-by-reference during deserialization
+                output += '&'
+            output += ' result'
+        
+        output += ')'
+        return output
+
+
+    def GenerateSerializeMember(self, member):
+        return ''
+
+
+    def GenerateDeserializeMember(self, member):
+        return ''
 
     #
     # Create a vktrace file and return it as a string

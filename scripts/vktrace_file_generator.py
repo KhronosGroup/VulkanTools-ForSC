@@ -26,6 +26,7 @@ from generator import *
 from collections import namedtuple
 
 approved_ext = [
+                'VK_VERSION_1_0',
                 'VK_AMD_draw_indirect_count',
                 'VK_AMD_gcn_shader',
                 'VK_AMD_gpu_shader_half_float',
@@ -142,7 +143,7 @@ api_exclusions = [
 
 def isSupportedCmd(cmd, cmd_extension_dict):
     extension = cmd_extension_dict[cmd.name]
-    if extension != 'VK_VERSION_1_0' and extension not in approved_ext:
+    if extension not in approved_ext:
         return False
 
     cmdname = cmd.name[2:]
@@ -225,24 +226,38 @@ class VkTraceFileOutputGenerator(OutputGenerator):
         self.StructMemberData = namedtuple('StructMemberData', ['name', 'members', 'ifdef_protect'])
         self.TypeMemberData = namedtuple('TypeMemberData', ['name', 'members', 'ifdef_protect'])
 
+        # Maps C types to protobuf types
         # Key: c type, Value: non-pointer, pointer, double-pointer
 
-      # Type Name           Type            *pType              **ppType    
+      # Type Name           Protobuf Type 
         self.ProtobufTypeMap = {
-            'void'          : [None,        'bytes',            'repeated bytes'],
-            'bool'          : ['bool',      'repeated bool',    'repeated bytes'],
-            'int'           : ['int32',     'repeated int32',   'repeated bytes'],
-            'int32_t'       : ['int32',     'repeated int32',   'repeated bytes'],
-            'long'          : ['int64',     'repeated int64',   'repeated bytes'],
-            'int64_t'       : ['int64',     'repeated int64',   'repeated bytes'],
-            'unsigned int'  : ['uint32',    'repeated uint32',  'repeated bytes'],
-            'uint32_t'      : ['uint32',    'repeated uint32',  'repeated bytes'],
-            'unsigned long' : ['uint64',    'repeated uint64',  'repeated bytes'],
-            'uint64_t'      : ['uint64',    'repeated uint64',  'repeated bytes'],
-            'size_t'        : ['uint64',    'repeated uint64',  'repeated bytes'],
-            'float'         : ['float',     'repeated float',   'repeated bytes'],
-            'double'        : ['double',    'repeated double',  'repeated bytes'],
-            'char'          : ['string',    'string',           'repeated string'],
+            'void'          : 'bytes',
+            'bool'          : 'bool',
+            'int'           : 'int32',
+            'int32_t'       : 'int32',
+            'long'          : 'int64',
+            'int64_t'       : 'int64',
+            'unsigned int'  : 'uint32',
+            'uint32_t'      : 'uint32',
+            'unsigned long' : 'uint64',
+            'uint64_t'      : 'uint64',
+            'size_t'        : 'uint64',
+            'float'         : 'float',
+            'double'        : 'double',
+            'char'          : 'string',
+        }
+
+        # Maps protobuf types to their protobuf cpp types
+        self.ProtobufAssignmentMap = {
+            'bytes' : 'char',
+            'bool'  : 'google::protobuf::bool',
+            'int32' : 'google::protobuf::int32',
+            'int64' : 'google::protobuf::int64',
+            'uint32': 'google::protobuf::uint32',
+            'uint64': 'google::protobuf::uint64',
+            'float' : 'float',
+            'double': 'double',
+            'string': 'std::string',
         }
     #
     # Called once at the beginning of each run
@@ -309,7 +324,7 @@ class VkTraceFileOutputGenerator(OutputGenerator):
         len = self.getLen(member)
         isconst = True if 'const' in cdecl else False
         ispointer = self.paramIsPointer(member)
-        isstaticarray = self.paramIsStaticArray(member)
+        isstaticarray = self.paramGetStaticArraySize(member)
         handle = self.registry.tree.find("types/type/[name='" + type + "'][@category='handle']")
         return self.CommandParam(type=type,
                                 name=name,
@@ -321,10 +336,8 @@ class VkTraceFileOutputGenerator(OutputGenerator):
                                 cdecl=cdecl,
                                 feature_protect=self.featureExtraProtect,
                                 handle=handle)
-    #
-    # Called for each type -- if the type is a struct/union, grab the metadata
-    def genType(self, typeinfo, typeName):
-        OutputGenerator.genType(self, typeinfo, typeName)
+
+    def genTypeInfo(self, typeinfo, typeName):
         typeElem = typeinfo.elem
         # If the type is a struct type, traverse the imbedded <member> tags generating a structure.
         # Otherwise, emit the tag text.
@@ -348,12 +361,21 @@ class VkTraceFileOutputGenerator(OutputGenerator):
         # Generate member info
         membersInfo = []
         for member in members:
-            membersInfo.append(self.GetMemberInfo(member, lens))
+            meminfo = self.GetMemberInfo(member, lens)
+            membersInfo.append(meminfo)
         self.typeMembers.append(self.TypeMemberData(name=typeName, members=membersInfo, ifdef_protect=self.featureExtraProtect))
+        self.cmd_info_data.append(self.CmdInfoData(name=typeName, cmdinfo=typeinfo))
+        self.cmd_extension_names.append(self.cmd_extension_data(name=typeName, extension_name=self.current_feature_name))
+
+    #
+    # Called for each type -- if the type is a struct/union, grab the metadata
+    def genType(self, typeinfo, typeName):
+        OutputGenerator.genType(self, typeinfo, typeName)
+        self.genTypeInfo(typeinfo, typeName)
 
     def genGroup(self, groupinfo, groupName):
         OutputGenerator.genGroup(self, groupinfo, groupName)
-        self.genType(groupinfo, groupName)
+        self.genTypeInfo(groupinfo, groupName)
     #
     # Check if the parameter passed in is a pointer
     def paramIsPointer(self, param):
@@ -364,11 +386,22 @@ class VkTraceFileOutputGenerator(OutputGenerator):
         return ispointer
     #
     # Check if the parameter passed in is a static array
-    def paramIsStaticArray(self, param):
+    def paramGetStaticArraySize(self, param):
         isstaticarray = 0
+
+        # Check for literal value
         paramname = param.find('name')
-        if (paramname is not None) and (paramname.tail is not None) and ('[' in paramname.tail):
-            isstaticarray = paramname.tail.count('[')
+        if (paramname is not None) and (paramname.tail is not None) and ('[' in paramname.tail) and (']' in paramname.tail):
+            start = paramname.tail.index('[')+1
+            end = paramname.tail.index(']')
+            if end >= start:
+                isstaticarray = int(paramname.tail[start:end])
+
+        # Check for enum value
+        enumname = param.find('enum')
+        if (enumname is not None) and (enumname.text is not None):
+            isstaticarray = enumname.text
+
         return isstaticarray
     #
     # Retrieve the type and name for a parameter
@@ -2861,7 +2894,9 @@ class VkTraceFileOutputGenerator(OutputGenerator):
     # Generate .proto file for Google Protocol Buffers
     # https://developers.google.com/protocol-buffers/docs/proto3
     def GenerateTraceVkProtocol(self):
-        
+        info_dict = dict(self.cmd_info_data)
+        ext_dict = dict(self.cmd_extension_names)
+
         # Header
         output = ('syntax = "proto3";\n\n'
                   'package vktrace;\n\n'
@@ -2869,57 +2904,81 @@ class VkTraceFileOutputGenerator(OutputGenerator):
 
         # Struct Messages
         for struct in self.typeMembers:
-            output += self.GenerateMessage(struct)
+            if ext_dict[struct.name] in approved_ext:
+                output += self.GenerateMessage(info_dict, struct)
         
         # Command Messages (packets)
         for cmd in self.cmdMembers:
-            output += self.GenerateMessage(cmd)
+            if isSupportedCmd(cmd, ext_dict):
+                output += self.GenerateMessage(info_dict, cmd)
 
         return output
 
 
-    def GenerateMessage(self, obj):
-        # No need to define mapped types
+    def GenerateMessage(self, cmd_info_dict, obj):
+        # No need to define mapped or empty types
         if obj.name in self.ProtobufTypeMap:
+            return ''
+        if len(obj.members) == 0:
             return ''
         # Message header
         output = 'message %s {\n' % obj.name
         # Message fields
-        if len(obj.members) == 0:
-            # Treat entire message as uint64 for now
-            output += '  uint64 data = 1;\n'
-        else:
-            count = 1            
-            for member in obj.members:
-                if member.name == '': # TODO: Figure out why blank members are in the code gen
-                    break
-                protocolType = self.GetProtocolType(member)
-                output += '  %s %s = %s;\n' % (protocolType, member.name, count)
-                count += 1
+        count = 1            
+        for member in obj.members:
+            if member.name == '': # TODO: Figure out why blank members are in the code gen
+                break
+            protocolType = self.GetProtocolType(cmd_info_dict, member)
+            output += '  %s %s = %s;\n' % (protocolType, member.name, count)
+            count += 1
+
+        info = cmd_info_dict[obj.name]
+        protoelem = info.elem.find('.//proto')
+        if protoelem: # Add function return field if applicable
+            proto = self.GetMemberInfo(protoelem)
+            if proto.type != 'void':
+                protocolType = self.GetProtocolType(cmd_info_dict, proto)
+                output += '  %s result = %s;\n' % (protocolType, count)
+
         output += '}\n\n'
 
         return output
 
-    def GetProtocolType(self, member):
+    def GetProtocolType(self, cmd_info_dict, member):
         ### Specific arg exceptions ###
         if member.name == 'pNext':
-            return 'google.protobuf.Any'        
+            output = 'google.protobuf.Any'
 
         ### Type Mapping ###
-        if member.type in self.ProtobufTypeMap:
-            return self.ProtobufTypeMap[member.type][member.ispointer] # ispointer is 0 if non-pointer, 1 if pointer, 2 if double
+        elif member.type in self.ProtobufTypeMap:
+            output = self.ProtobufTypeMap[member.type]
+        else:
+            meminfo = cmd_info_dict[member.type]
+            if len(meminfo.elem.findall('.//member')) == 0:
+                output = 'uint64'
+            else:
+                output = member.type # Code type by default
 
-        # Use the code type by default, assuming there will be a message type to stand for it if it is not primitive        
-        return member.type
+        # If we have a length variable, or this is an array, this is a repeated field. Not chars for obvious reasons
+        if member.len or member.isstaticarray and member.type != 'char':
+            output = 'repeated ' + output
+
+        return output
         
 
     def GenerateTraceSerializationHeader(self):
         cmd_info_dict = dict(self.cmd_info_data)
+        ext_dict = dict(self.cmd_extension_names)
 
-        output = ('#include "vulkan/vulkan.h"\n'
-                  '#include "vktrace_vk.pb.h"\n\n')
+        output = ('#pragma once\n\n'
+                  '#include "vulkan/vulkan.h"\n'
+                  '#include "vktrace_vk.pb.h"\n'
+                  '#include "vktrace_multiplatform.h"\n\n')
 
         for cmd in self.cmdMembers:
+            if not isSupportedCmd(cmd, ext_dict):
+                continue
+
             cmdinfo = cmd_info_dict[cmd.name]
             proto = self.GetMemberInfo(cmdinfo.elem.find('.//proto'))
 
@@ -2936,52 +2995,99 @@ class VkTraceFileOutputGenerator(OutputGenerator):
 
     def GenerateTraceSerializationCpp(self):
         cmd_info_dict = dict(self.cmd_info_data)
+        ext_dict = dict(self.cmd_extension_names)
 
         output = '#include "vktrace_serialization.h"\n\n'
 
+        # Note: No header definitions 
         for struct in self.typeMembers:
+            if not ext_dict[struct.name] in approved_ext:
+                continue
+
             if struct.name in self.ProtobufTypeMap:
                 continue # Mapped types will not need a function
 
+            # Types without members
+            structinfo = cmd_info_dict[struct.name]
+            hasMembers = len(structinfo.elem.findall('.//member')) > 0
+            if not hasMembers:
+                continue
+
+            # Get proto obj (Serialize)
+            output += self.GenerateProtoObjStub(struct, True)
+            output += ' {\n'
+            output += '    vktrace::%s* temp = new vktrace::%s();\n' % (struct.name, struct.name)
+            if len(struct.members) == 0:
+                output += '    temp.set_data(data)\n'
+            else:
+                for member in struct.members:
+                    output += self.GetAssignment(cmd_info_dict, 'data', member, False, True)
+            output += '    return temp;\n'
+            output += '}\n\n'
+
+            # Set proto obj (Deserialize)
+            output += self.GenerateProtoObjStub(struct, False)
+            output += ' {\n'
+            if len(struct.members) == 0:
+                output += '    data = temp.data();\n'
+            else:
+                for member in struct.members:
+                    output += self.GetAssignment(cmd_info_dict, 'data', member, False, False)
+            output += '}\n\n'
+
         for cmd in self.cmdMembers:
+            if not isSupportedCmd(cmd, ext_dict):
+                continue
+
             cmdinfo = cmd_info_dict[cmd.name]
             proto = self.GetMemberInfo(cmdinfo.elem.find('.//proto'))
 
             ### Serialize ###
             output += self.GenerateSerializeCmdStub(cmd, proto, True)
             output += ' {\n'
-            output += '    // Assign all fields to equivalent protobuf obj\n'
-            output += '    vktrace::%s temp;\n' % cmd.name
+            output += '    vktrace::%s* temp = new vktrace::%s();\n' % (cmd.name, cmd.name)
 
+            # Params
             for member in cmd.members:
-                if member.type in self.ProtobufTypeMap: # Mapped type can be assigned directly
-                    output += '    temp.set_%s(%s);\n' % (member.name, member.name)
-                else:                                   # Otherwise call the converter
-                    output += '    temp.set_%s(get_proto_obj_%s(%s));\n' % (member.name, member.type, member.name)
+                output += self.GetAssignment(cmd_info_dict, None, member, False, True)
 
-            output += '    temp.SerializeToOstream(dest);\n'
+            # Result
+            if proto.type != 'void':
+                output += self.GetAssignment(cmd_info_dict, None, proto, True, True)
+
+            output += '    temp->SerializeToOstream(dest);\n'
             output += '}\n\n'
 
             ### Deserialize ###
             output += self.GenerateSerializeCmdStub(cmd, proto, False)
             output += ' {\n'
-            output += '    // Retrieve all fields from equivalent protobuf obj\n'
             output += '    vktrace::%s temp;\n' % cmd.name
-            output += '    temp.ParseFromIStream(src);\n'
+            output += '    temp.ParseFromIstream(src);\n'
 
+            # Params
             for member in cmd.members:
-                if member.type in self.ProtobufTypeMap: # Mapped type can be assigned directly
-                    output += '    %s = temp.%s();\n' % (member.name, member.name)
-                else:                                   # Otherwise call the converter
-                    output += '    %s = from_proto_obj_%s(%s);\n' % (member.name, member.type, member.name)
+                output += self.GetAssignment(cmd_info_dict, None, member, False, False)
+
+            # Result
+            if proto.type != 'void':
+                output += self.GetAssignment(cmd_info_dict, None, proto, True, False)
 
             output += '}\n\n\n'
 
         return output
 
 
-    def GenerateGetProtoObjStub(self, struct, isSerialize):
-        output = 'vktrace::%s get_proto_obj_%s(' % (struct.type, struct.type)
+    def GenerateProtoObjStub(self, struct, isSerialize):
+        output = 'inline '
+        if isSerialize:
+            output += 'vktrace::%s* serialize' % struct.name # Serialization will return a protobuf obj
+        else:
+            output += 'void deserialize'
+        output += '_proto_obj_%s(' % (struct.name)
+        if not isSerialize:
+            output += 'const vktrace::%s& temp, ' % struct.name # Deserialization will populate a reference to the vulkan obj
+        output += self.GetParameterDeclaration(struct)
+        output += ')'
         return output
 
 
@@ -2995,38 +3101,206 @@ class VkTraceFileOutputGenerator(OutputGenerator):
         output += '_%s(' % cmd.name
 
         if isSerialize:
-            output += 'std::ostream* dest '
+            output += 'std::ostream* dest'
         else:
-            output += 'std::istream* src '
+            output += 'std::istream* src'
         
         # Parameters
         for member in cmd.members:
-            output += ', %s' % member.type
-            for i in range(member.ispointer):
-                output += '*'
-            if not isSerialize: # Parameters are pass-by-reference during deserialization
-                output += '&'
-            output += ' %s' % member.name
+            if member.name == '':  # TODO: Fix the right way
+                continue
+            output += ', %s' % self.GetParameterDeclaration(member)
 
         # Return value
         if proto.type != 'void' or proto.ispointer:
-            output += ', %s' % proto.type
-            for i in range(proto.ispointer):
-                output += '*'
-            if not isSerialize: # Parameters are pass-by-reference during deserialization
-                output += '&'
-            output += ' result'
+            output += ', %s' % self.GetParameterDeclaration(proto, True)
         
         output += ')'
         return output
 
 
-    def GenerateSerializeMember(self, member):
-        return ''
+    def GetParameterDeclaration(self, member, isResult=False):
+        output = ''
+
+        if (hasattr(member, 'type')):
+            memType = member.type
+            memName = member.name
+        else:
+            memType = member.name
+            memName = 'data'
+
+        if isResult:
+            memName = 'result'
+        output += '%s' % memType
+
+        if hasattr(member, 'ispointer'):
+            for i in range(member.ispointer):
+                output += '*'
+
+        if hasattr(member, 'isstaticarray') and member.isstaticarray:
+            output += ' %s[]' % memName
+        else:
+            output += '& %s' % memName
+
+        return output
 
 
-    def GenerateDeserializeMember(self, member):
-        return ''
+    def GetAssignment(self, cmd_info_dict, parentName, obj, isResult, isSerialize):
+        if obj.name == '' or obj.type == 'void': # TODO: Fix these exceptions
+            return ''
+
+        output = ''
+
+        if parentName:
+            parentStr = '%s.' % parentName
+        else:
+            parentStr = ''
+
+        if isResult:
+            objName = 'result'
+        else:
+            objName = obj.name
+
+        isPrimitive = obj.type in self.ProtobufTypeMap or len(cmd_info_dict[obj.type].elem.findall('.//member')) == 0
+
+        if isSerialize:
+            if isPrimitive: # Mapped type can be assigned directly
+                protocolType = self.GetProtocolType(cmd_info_dict, obj)
+
+                if not protocolType:
+                    protocolType = 'uint64'
+                if 'uint64' in protocolType: # Force cast to uint64_t
+                    castStr = '(uint64_t)'
+                else:
+                    castStr = ''
+
+                if obj.len: # For multiples
+                    countStr = '%s%s' % (parentStr, obj.len)
+
+                    # In case len is nested
+                    lenTestStr = obj.len.split('->')[-1]
+                    if lenTestStr[:2] == 'pp' and lenTestStr[2].isupper():
+                        countDeref = '**'
+                    elif lenTestStr[0] == 'p' and lenTestStr[1].isupper():
+                        countDeref = '*'
+                    else:
+                        countDeref = ''
+
+                    output += '    for (uint32_t i = 0; i < %s%s; ++i)\n' % (countDeref, countStr)
+                    output += '        temp->set_%s(i, %s%s%s[i]);\n' % (objName.lower(), castStr, parentStr, objName)
+                elif obj.isstaticarray and obj.type != 'char': # Similar, for arrays
+                    output += '    for (uint32_t i = 0; i < %s; ++i)\n' % obj.isstaticarray
+                    output += '        temp->set_%s(i, %s%s%s[i]);\n' % (objName.lower(), castStr, parentStr, objName)
+                else:
+                    derefStr = ''
+                    if obj.type != 'char':
+                        for i in range(0, obj.ispointer):
+                            derefStr = '*'
+                    output += '    temp->set_%s(%s%s%s%s);\n' % (objName.lower(), castStr, derefStr, parentStr, objName)
+            else:                                   # Otherwise call the converter
+                derefStr = ''
+                for i in range(0, obj.ispointer):
+                    derefStr += '*'
+                if obj.isconst: # Break const when serializing to probobuf object
+                    castStr = '(%s&)' % obj.type
+                else:
+                    castStr = ''
+
+                if obj.len: # For multiples
+                    countStr = '%s%s' % (parentStr, obj.len)
+
+                    # In case len is nested
+                    lenTestStr = obj.len.split('->')[-1]
+                    if lenTestStr[:2] == 'pp' and lenTestStr[2].isupper():
+                        countDeref = '**'
+                    elif lenTestStr[0] == 'p' and lenTestStr[1].isupper():
+                        countDeref = '*'
+                    else:
+                        countDeref = ''
+
+                    output += '    for (uint32_t i = 0; i < %s%s; ++i) {\n' % (countDeref, countStr)
+                    output += '        temp->add_%s();\n' % objName.lower()
+                    output += '        *temp->mutable_%s(i) = *serialize_proto_obj_%s(%s%s%s[i]);\n' % (objName.lower(), obj.type, castStr, parentStr, objName)
+                    output += '    }\n'
+                elif obj.isstaticarray and obj.type != 'char': # Similar, for arrays
+                    output += '    for (uint32_t i = 0; i < %s; ++i) {\n' % obj.isstaticarray
+                    output += '        temp->add_%s();\n' % objName.lower()
+                    output += '        *temp->mutable_%s(i) = *serialize_proto_obj_%s(%s%s%s[i]);\n' % (objName.lower(), obj.type, castStr, parentStr, objName)
+                    output += '    }\n'
+                else:
+                    output += '    temp->set_allocated_%s(serialize_proto_obj_%s(%s%s%s%s));\n' % (objName.lower(), obj.type, castStr, derefStr, parentStr, objName)
+        else:
+
+            # Type strings that point to arrays (1 pointer removed)
+            arrayCastType = obj.type
+            for i in range(1, obj.ispointer): # 1 less pointer since we're creating an array
+                arrayCastType += '*'
+
+            if isPrimitive: # Mapped type can be assigned directly
+                if obj.type == 'char':
+                    cStr = '.c_str()'
+                else:
+                    cStr = ''
+
+                if obj.len: # For multiples:
+                    countStr = '%s%s' % (parentStr, obj.len)
+
+                    # In case len is nested
+                    lenTestStr = obj.len.split('->')[-1]
+                    if lenTestStr[:2] == 'pp' and lenTestStr[2].isupper():
+                        countDeref = '**'
+                    elif lenTestStr[0] == 'p' and lenTestStr[1].isupper():
+                        countDeref = '*'
+                    else:
+                        countDeref = ''
+                    
+                    output += '    %s* %s_temp = new %s[%s%s];\n' % (arrayCastType, objName, arrayCastType, countDeref, countStr)
+                    output += '    for (uint32_t i = 0; i < %s%s; ++i)\n' % (countDeref, countStr)
+                    output += '        %s_temp[i] = (%s)(temp.%s()[i]%s);\n' % (objName, arrayCastType, objName.lower(), cStr)
+                    output += '    %s%s = %s_temp;\n' % (parentStr, objName, objName)
+                elif obj.isstaticarray: # Similar, but for arrays
+                    output += '    for (uint32_t i = 0; i < %s; ++i)\n' % obj.isstaticarray
+                    output += '        %s%s[i] = (%s)(temp.%s()[i]);\n' % (parentStr, objName, arrayCastType, objName.lower())
+                else:
+                    castType = obj.type
+                    for i in range(0, obj.ispointer):
+                            castType += '*'
+
+                    if obj.len:
+                        output += '    %s%s = (%s)temp.mutable_%s()%s;\n' % (parentStr, objName, castType, objName.lower(), cStr)
+                    else:
+                        output += '    %s%s = (%s)temp.%s()%s;\n' % (parentStr, objName, castType, objName.lower(), cStr)
+            else:                                 # Otherwise call the converter
+                derefStr = ''
+                for i in range(0, obj.ispointer):
+                    derefStr += '*'
+                if obj.isconst: # Break const when serializing to probobuf object
+                    castStr = '(%s&)' % obj.type
+                else:
+                    castStr = ''
+
+                if obj.len: # For multiples:
+                    countStr = '%s%s' % (parentStr, obj.len)
+
+                    # In case len is nested
+                    lenTestStr = obj.len.split('->')[-1]
+                    if lenTestStr[:2] == 'pp' and lenTestStr[2].isupper():
+                        countDeref = '**'
+                    elif lenTestStr[0] == 'p' and lenTestStr[1].isupper():
+                        countDeref = '*'
+                    else:
+                        countDeref = ''
+                    
+                    output += '    %s%s = new %s[%s%s];\n' % (parentStr, objName, arrayCastType, countDeref, countStr)
+                    output += '    for (uint32_t i = 0; i < %s%s; ++i)\n' % (countDeref, countStr)
+                    output += '        deserialize_proto_obj_%s(temp.%s(i), %s%s%s[i]);\n' % (obj.type, objName.lower(), castStr, parentStr, objName)
+                elif obj.isstaticarray: # Similar, but for arrays
+                    output += '    for (uint32_t i = 0; i < %s; ++i)\n' % obj.isstaticarray
+                    output += '        deserialize_proto_obj_%s(temp.%s(i), %s%s%s[i]);\n' % (obj.type, objName.lower(), castStr, parentStr, objName)
+                else:
+                    output += '    deserialize_proto_obj_%s(temp.%s(), %s%s%s%s);\n' % (obj.type, objName.lower(), castStr, derefStr, parentStr, objName)
+        return output
+
 
     #
     # Create a vktrace file and return it as a string

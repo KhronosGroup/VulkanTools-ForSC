@@ -1,8 +1,6 @@
 project(vktrace_serialization)
 cmake_minimum_required(VERSION 2.8)
 
-execute_process(COMMAND ${PYTHON_EXECUTABLE} ${SCRIPTS_DIR}/lvl_genvk.py -registry ${SCRIPTS_DIR}/vk.xml -o ${GENERATED_FILES_DIR} vktrace_vk.proto)
-execute_process(COMMAND ${CMAKE_SOURCE_DIR}/external/protobuf/solution/Release/protoc.exe --proto_path=${GENERATED_FILES_DIR} -I=${CMAKE_SOURCE_DIR}/external/protobuf/src --cpp_out=${GENERATED_FILES_DIR} ${GENERATED_FILES_DIR}/vktrace_vk.proto )
 execute_process(COMMAND ${PYTHON_EXECUTABLE} ${SCRIPTS_DIR}/lvl_genvk.py -registry ${SCRIPTS_DIR}/vk.xml -o ${GENERATED_FILES_DIR} vktrace_serialization.h)
 execute_process(COMMAND ${PYTHON_EXECUTABLE} ${SCRIPTS_DIR}/lvl_genvk.py -registry ${SCRIPTS_DIR}/vk.xml -o ${GENERATED_FILES_DIR} vktrace_serialization.cpp)
 
@@ -15,17 +13,14 @@ include_directories(
     ${SRC_DIR}/vktrace_common
     ${SRC_DIR}/thirdparty
     ${GENERATED_FILES_DIR}
-    ${CMAKE_SOURCE_DIR}/external/protobuf/src
 )
 
 set (HDR_LIST
      ${GENERATED_FILES_DIR}/vktrace_serialization.h
-     ${GENERATED_FILES_DIR}/vktrace_vk.pb.h
 )
 
 set (SRC_LIST
      ${GENERATED_FILES_DIR}/vktrace_serialization.cpp
-     ${GENERATED_FILES_DIR}/vktrace_vk.pb.cc
 )
 
 set_source_files_properties( ${SRC_LIST} PROPERTIES LANGUAGE CXX)

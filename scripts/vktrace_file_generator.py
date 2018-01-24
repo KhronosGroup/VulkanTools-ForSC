@@ -641,6 +641,7 @@ class VkTraceFileOutputGenerator(OutputGenerator):
                                  'BindBufferMemory2KHR',
                                  'BindImageMemory2KHR',
                                  'GetDisplayPlaneSupportedDisplaysKHR',
+                                 'AcquireNextImage2KHX',
                                  ]
         # Map APIs to functions if body is fully custom
         custom_body_dict = {'CreateInstance': self.GenReplayCreateInstance,
@@ -2304,7 +2305,7 @@ class VkTraceFileOutputGenerator(OutputGenerator):
                                          'vkCmdPushConstants',
                                          'vkDestroyInstance',
                                          'vkEnumeratePhysicalDevices',
-                                         'vkEnumeratePhysicalDeviceGroups',
+                                         'vkEnumeratePhysicalDeviceGroupsKHX',
                                          'vkFreeMemory',
                                          'vkFreeDescriptorSets',
                                          'vkQueueSubmit',

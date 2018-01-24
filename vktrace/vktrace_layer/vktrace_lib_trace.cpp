@@ -4385,7 +4385,7 @@ VKTRACER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL __HOOKED_vkGetDevicePro
             if (!strcmp("vkDestroySwapchainKHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkDestroySwapchainKHR;
             if (!strcmp("vkGetSwapchainImagesKHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkGetSwapchainImagesKHR;
             if (!strcmp("vkAcquireNextImageKHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkAcquireNextImageKHR;
-            if (!strcmp("vkAcquireNextImage2KHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkAcquireNextImage2KHX;
+            if (!strcmp("vkAcquireNextImage2KHX", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkAcquireNextImage2KHX;
             if (!strcmp("vkQueuePresentKHR", funcName)) return (PFN_vkVoidFunction)__HOOKED_vkQueuePresentKHR;
         }
     }
@@ -4524,6 +4524,38 @@ VKTRACER_EXPORT VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL __HOOKED_vkGetInstanceP
     if (pTable->GetInstanceProcAddr == NULL) return NULL;
 
     return pTable->GetInstanceProcAddr(instance, funcName);
+}
+
+VKTRACER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL __HOOKED_vkAcquireNextImage2KHX(
+    VkDevice device,
+    const VkAcquireNextImageInfoKHX* pAcquireInfo,
+    uint32_t* pImageIndex) {
+    VkResult result;
+    vktrace_trace_packet_header* pHeader;
+    packet_vkAcquireNextImage2KHX* pPacket = NULL;
+    CREATE_TRACE_PACKET(vkAcquireNextImage2KHX, get_struct_chain_size((void*)pAcquireInfo) + sizeof(uint32_t));
+    result = mdd(device)->devTable.AcquireNextImage2KHX(device, pAcquireInfo, pImageIndex);
+    vktrace_set_packet_entrypoint_end_time(pHeader);
+    pPacket = interpret_body_as_vkAcquireNextImage2KHX(pHeader);
+    pPacket->device = device;
+    vktrace_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pAcquireInfo), sizeof(VkAcquireNextImageInfoKHX), pAcquireInfo);
+    vktrace_add_buffer_to_trace_packet(pHeader, (void**)&(pPacket->pImageIndex), sizeof(uint32_t), pImageIndex);
+    pPacket->result = result;
+    vktrace_finalize_buffer_address(pHeader, (void**)&(pPacket->pAcquireInfo));
+    vktrace_finalize_buffer_address(pHeader, (void**)&(pPacket->pImageIndex));
+    if (!g_trimEnabled) {
+        FINISH_TRACE_PACKET();
+    }
+    else {
+        vktrace_finalize_trace_packet(pHeader);
+        if (g_trimIsInTrim) {
+            trim::write_packet(pHeader);
+        }
+        else {
+            vktrace_delete_trace_packet(&pHeader);
+        }
+    }
+    return result;
 }
 
 static const VkLayerProperties layerProps = {

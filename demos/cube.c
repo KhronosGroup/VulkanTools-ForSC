@@ -3052,6 +3052,12 @@ static void demo_init_vk(struct demo *demo) {
                 demo->extension_names[demo->enabled_extension_count++] =
                     VK_KHR_SURFACE_EXTENSION_NAME;
             }
+            if (!strcmp(VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME,
+                instance_extensions[i].extensionName)) {
+                deviceGroupExtFound = 1;
+                demo->extension_names[demo->enabled_extension_count++] =
+                    VK_KHX_DEVICE_GROUP_CREATION_EXTENSION_NAME;
+            }
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
             if (!strcmp(VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
                         instance_extensions[i].extensionName)) {

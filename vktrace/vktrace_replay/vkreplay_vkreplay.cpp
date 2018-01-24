@@ -4133,3 +4133,19 @@ VkResult vkReplay::manually_replay_vkGetDisplayPlaneSupportedDisplaysKHR(packet_
 
     return result;
 }
+
+VkResult vkReplay::manually_replay_vkAcquireNextImage2KHX(packet_vkAcquireNextImage2KHX *pPacket) {
+    uint32_t local_pImageIndex;
+    VkDevice remappeddevice = m_objMapper.remap_devices(pPacket->device);
+
+    if (pPacket->device != VK_NULL_HANDLE && remappeddevice == VK_NULL_HANDLE) {
+        vktrace_LogError("Error detected in AcquireNextImage2KHX() due to invalid remapped VkDevice.");
+        return VK_ERROR_VALIDATION_FAILED_EXT;
+    }
+
+    // No need to remap pAcquireInfo
+    auto result = m_vkDeviceFuncs.AcquireNextImage2KHX(remappeddevice, pPacket->pAcquireInfo, &local_pImageIndex);
+    m_objMapper.add_to_pImageIndex_map(*(pPacket->pImageIndex), local_pImageIndex);
+    
+    return result;
+}

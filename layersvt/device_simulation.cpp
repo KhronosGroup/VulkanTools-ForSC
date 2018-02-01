@@ -1203,6 +1203,44 @@ VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceProperties(VkPhysicalDevice physical
 VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceProperties2KHR(VkPhysicalDevice physicalDevice,
                                                            VkPhysicalDeviceProperties2KHR *pProperties) {
     GetPhysicalDeviceProperties(physicalDevice, &pProperties->properties);
+    // TODO: Need to handle extended properties. See mock icd update for reference
+    //  PR2388 - https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/pull/2388
+    // This is some shell code that can be built on
+    // Handle any extension properties queried down pNext chain
+    if (pProperties->pNext) {
+        // TODO: Load in "extended" data that was already read in from json file, similar to how phydev data is loaded:
+        // Here's an example extended block from amd_radv_polaris10.json, this is same level in json as
+        // "VkPhysicalDeviceProperties":
+        //    "extended": {
+        //        "devicefeatures2": [],
+        //        "deviceproperties2": [
+        //            {
+        //                "extension": "VK_KHR_push_descriptor",
+        //                "name": "maxPushDescriptors",
+        //                "value": "32"
+        //            }
+        //        ]
+        //    },
+        auto struct_header = reinterpret_cast<GENERIC_HEADER *>(pProperties->pNext);
+        while (struct_header) {
+            switch (struct_header->sType) {
+                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR: {
+                    VkPhysicalDevicePushDescriptorPropertiesKHR *pd_prop =
+                        reinterpret_cast<VkPhysicalDevicePushDescriptorPropertiesKHR *>(struct_header);
+                    // TODO: Instead of assigning to hard-coded value, this should be assigned to value loaded in from file
+                    //  For the example file above it would be the "value" of 32 that was loaded from that ext block.
+                    pd_prop->maxPushDescriptors = 32;
+                    break;
+                }
+                // TODO: Handle other extension types
+                default:
+                    assert(0);
+                    // Unknown extension property request needs to be handled
+                    break;
+            }
+            struct_header = reinterpret_cast<GENERIC_HEADER *>(struct_header->pNext);
+        }
+    }
 }
 
 VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures *pFeatures) {
@@ -1220,6 +1258,7 @@ VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDe
 
 VKAPI_ATTR void VKAPI_CALL GetPhysicalDeviceFeatures2KHR(VkPhysicalDevice physicalDevice, VkPhysicalDeviceFeatures2KHR *pFeatures) {
     GetPhysicalDeviceFeatures(physicalDevice, &pFeatures->features);
+    // TODO: Need to handle extensions here similar to GPDP2 above
 }
 
 template <typename T>

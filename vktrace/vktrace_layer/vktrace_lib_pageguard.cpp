@@ -374,6 +374,7 @@ void PageGuardExceptionHandler(int sig, siginfo_t* si, void* unused) {
         PBYTE pBlock;
         VkDeviceSize BlockSize;
         PBYTE addr = (PBYTE)si->si_addr;
+        pageguardEnter();
         LPPageGuardMappedMemory pMappedMem =
             getPageGuardControlInstance().findMappedMemoryObject(addr, &OffsetOfAddr, &pBlock, &BlockSize);
         if (pMappedMem) {
@@ -389,6 +390,7 @@ void PageGuardExceptionHandler(int sig, siginfo_t* si, void* unused) {
             vktrace_LogError("Unhandled SIGSEGV on address: 0x%lx !", (long)addr);
             exit(EXIT_FAILURE);
         }
+        pageguardExit();
     }
 }
 #endif

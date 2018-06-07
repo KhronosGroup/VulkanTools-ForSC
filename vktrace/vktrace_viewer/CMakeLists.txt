@@ -42,7 +42,7 @@ include_directories(
     ${SRC_DIR}/vktrace_replay
     ${SRC_DIR}/vktrace_viewer
     ${CMAKE_CURRENT_BINARY_DIR}
-    ${CMAKE_BINARY_DIR}/${VALIDATION_LAYERS_RELATIVE_LOCATION}/layers
+    ${Vulkan-ValidationLayers_INCLUDE_DIR}
     ${CMAKE_BINARY_DIR}
     ${Qt5Widgets_INCLUDE_DIRS}
 )

@@ -2,11 +2,43 @@
 # Tests of LunarG Device Simulation (devsim) layer
 # Uses 'jq' v1.5 https://stedolan.github.io/jq/
 
+# Track unrecognized arguments.
+UNRECOGNIZED=()
+
+# Parse the command-line arguments.
+while [[ $# -gt 0 ]]
+do
+   KEY="$1"
+   case $KEY in
+      -t|--tools)
+      VULKAN_TOOLS_BUILD_DIR="$2"
+      shift
+      shift
+      ;;
+      *)
+      UNRECOGNIZED+=("$1")
+      shift
+      ;;
+   esac
+done
+
+# Reject unrecognized arguments.
+if [[ ${#UNRECOGNIZED[@]} -ne 0 ]]; then
+   echo "ERROR: Unrecognized command-line arguments: ${UNRECOGNIZED[*]}"
+   exit 1
+fi
+
+if [ -z ${VULKAN_TOOLS_BUILD_DIR+x} ]; then
+   echo "ERROR: Vulkan-Tools build directory is undefined."
+   echo "Please set VULKAN_TOOLS_BUILD_DIR or use the -t|--tools <path> command line option."
+   exit 1
+fi
+
 set -o nounset
 set -o physical
 
 cd $(dirname "${BASH_SOURCE[0]}")
-VULKAN_TOOLS_BUILD_DIR="$PWD/../submodules/Vulkan-Tools"
+
 VULKANINFO="$VULKAN_TOOLS_BUILD_DIR/vulkaninfo/vulkaninfo"
 
 if [ -t 1 ] ; then
@@ -25,8 +57,6 @@ function fail_msg () {
    exit 1
 }
 
-export LD_LIBRARY_PATH="$VULKAN_TOOLS_BUILD_DIR/loader:${LD_LIBRARY_PATH:-}"
-export VK_LAYER_PATH="$PWD/../layersvt"
 export VK_INSTANCE_LAYERS="VK_LAYER_LUNARG_device_simulation"
 
 #export VK_DEVSIM_DEBUG_ENABLE="1"

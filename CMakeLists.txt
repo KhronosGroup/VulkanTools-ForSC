@@ -147,6 +147,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows" OR
     option(BUILD_VKTRACE "Build VkTrace" ON)
     option(BUILD_VIA "Build via" ON)
 
+    option(BUILD_LAYERMGR "Build layer manager" ON)
+    option(CUSTOM_GLSLANG_BIN_ROOT "Use the user defined GLSLANG_BINARY_ROOT" OFF)
+    option(CUSTOM_SPIRV_TOOLS_BIN_ROOT "Use the user defined SPIRV_TOOLS_BINARY_ROOT" OFF)
+
     if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT (BUILD_WSI_XCB_SUPPORT OR BUILD_WSI_WAYLAND_SUPPORT))
         option(BUILD_VKTRACE_REPLAY "Build VkReplay" OFF)
     else()
@@ -166,6 +170,7 @@ elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     option(BUILD_DEMOS OFF)
     option(BUILD_VKJSON OFF)
     option(BUILD_VIA OFF)
+    option(BUILD_LAYERMGR OFF)
     option(BUILD_VKTRACE_LAYER OFF)
     option(BUILD_VKTRACE_REPLAY OFF)
 
@@ -222,6 +227,10 @@ endif()
 
 if(BUILD_VIA)
     add_subdirectory(via)
+endif()
+
+if(BUILD_LAYERMGR)
+    add_subdirectory(layermgr)
 endif()
 
 # uninstall target

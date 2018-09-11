@@ -96,6 +96,14 @@ void LayerLocationsWidget::addLayerPath()
     LayerType type = LayerType::Explicit;
 #endif
 
+    // Check if the layer is already present in the list
+    QDir new_path(path);
+    for (const auto& location : custom_layer_locations) {
+        if (QDir(location.first) == new_path) {
+            return;
+        }
+    }
+
     custom_layer_locations.append(QPair<QString, LayerType>(path, type));
     QListWidgetItem *item = new QListWidgetItem();
     item->setText(path);

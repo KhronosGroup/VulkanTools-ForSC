@@ -166,7 +166,9 @@ void LayerManifest::LoadLayerObject(const QJsonObject &layer_object, LayerType t
             layer_manifest.name = layer_object.value("name").toString();
             layer_manifest.description = layer_object.value("description").toString();
             layer_manifest.type = type;
-            manifest_list->append(layer_manifest);
+            if (layer_manifest.name != "VK_LAYER_LUNARG_override") {
+                manifest_list->append(layer_manifest);
+            }
         }
     }
 }

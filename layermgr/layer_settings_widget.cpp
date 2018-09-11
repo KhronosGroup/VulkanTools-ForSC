@@ -196,7 +196,7 @@ BoolSelectWidget::BoolSelectWidget(const LayerOption &option, QWidget *parent)
 
 void BoolSelectWidget::setValue(const QString &value)
 {
-    if (value == "True") {
+    if (value == "TRUE") {
         true_button->setChecked(true);
     } else {
         false_button->setChecked(true);
@@ -206,7 +206,7 @@ void BoolSelectWidget::setValue(const QString &value)
 void BoolSelectWidget::setFalse(bool checked)
 {
     value_info.values.clear();
-    value_info.values.insert(checked ? "False" : "True");
+    value_info.values.insert(checked ? "FALSE" : "TRUE");
 
     emit valueChanged(value_info);
 }
@@ -214,7 +214,7 @@ void BoolSelectWidget::setFalse(bool checked)
 void BoolSelectWidget::setTrue(bool checked)
 {
     value_info.values.clear();
-    value_info.values.insert(checked ? "True" : "False");
+    value_info.values.insert(checked ? "TRUE" : "FALSE");
 
     emit valueChanged(value_info);
 }

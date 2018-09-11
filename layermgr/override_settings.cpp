@@ -20,7 +20,7 @@ OverrideSettings::OverrideSettings()
 {
     // Load the override layer (if found)
     QFile layer_file(LayerFile(false));
-    if (layer_file.exists() && layer_file.open(QFile::ReadOnly)) {
+    if (layer_file.exists() && layer_file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QString data = layer_file.readAll();
         layer_file.close();
 
@@ -43,7 +43,7 @@ OverrideSettings::OverrideSettings()
 
     // Load the settings file (if found)
     QFile settings_file(LayerSettingsFile(false));
-    if (settings_file.exists() && settings_file.open(QFile::ReadOnly)) {
+    if (settings_file.exists() && settings_file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         QString data = settings_file.readAll();
         settings_file.close();
 
@@ -120,7 +120,7 @@ bool OverrideSettings::SaveLayers(const QList<QPair<QString, LayerType>> &paths,
     QJsonDocument doc(root);
 
     QFile layer_file(LayerFile(true));
-    if (!layer_file.open(QFile::WriteOnly)) {
+    if (!layer_file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return true;
     }
     layer_file.write(doc.toJson());
@@ -132,7 +132,7 @@ bool OverrideSettings::SaveLayers(const QList<QPair<QString, LayerType>> &paths,
 bool OverrideSettings::SaveSettings(const QHash<QString, QHash<QString, LayerValue>> &settings)
 {
     QFile settings_file(LayerSettingsFile(true));
-    if (!settings_file.open(QFile::WriteOnly)) {
+    if (!settings_file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         return true;
     }
 
@@ -185,7 +185,7 @@ QString OverrideSettings::LayerFile(bool create_path) const
             dir.mkpath("VulkanLayerManager");
             dir.cd("VulkanLayerManager");
         }
-        QString file_path = QDir::toNativeSeparators(dir.absoluteFilePath("VkLayer_override.json"));
+        file_path = QDir::toNativeSeparators(dir.absoluteFilePath("VkLayer_override.json"));
         QByteArray file_path_bytes = file_path.toLocal8Bit();
         DWORD value = 0;
         RegSetValueEx(key, file_path_bytes.data(), 0, REG_DWORD, (BYTE*) &value, sizeof(value));

@@ -15,10 +15,12 @@ LayerLocationsWidget::LayerLocationsWidget(QWidget *parent)
 {
     default_layer_locations = {
 #if defined(_WIN32)
-        QPair<QString, LayerType>("HKEY_LOCAL_MACHINE\\SOFTWARE\\Khronos\\Vulkan\\ExplicitLayers", LayerType::Explicit),
-        QPair<QString, LayerType>("HKEY_LOCAL_MACHINE\\SOFTWARE\\Khronos\\Vulkan\\ImplicitLayers", LayerType::Implicit),
-        QPair<QString, LayerType>("HKEY_CURRENT_USER\\SOFTWARE\\Khronos\\Vulkan\\ExplicitLayers", LayerType::Explicit),
-        QPair<QString, LayerType>("HKEY_CURRENT_USER\\SOFTWARE\\Khronos\\Vulkan\\ImplicitLayers", LayerType::Implicit),
+        QPair<QString, LayerType>("HKEY_LOCAL_MACHINE\\Software\\Khronos\\Vulkan\\ExplicitLayers", LayerType::Explicit),
+        QPair<QString, LayerType>("HKEY_LOCAL_MACHINE\\Software\\Khronos\\Vulkan\\ImplicitLayers", LayerType::Implicit),
+        QPair<QString, LayerType>("HKEY_CURRENT_USER\\Software\\Khronos\\Vulkan\\ExplicitLayers", LayerType::Explicit),
+        QPair<QString, LayerType>("HKEY_CURRENT_USER\\Software\\Khronos\\Vulkan\\ImplicitLayers", LayerType::Implicit),
+        QPair<QString, LayerType>("HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\Class\\...\\VulkanExplicitLayers", LayerType::Explicit),
+        QPair<QString, LayerType>("HKEY_LOCAL_MACHINE\\System\\CurrentControlSet\\Control\\Class\\...\\VulkanImplicitLayers", LayerType::Implicit),
 #else
         QPair<QString, LayerType>("/usr/local/etc/vulkan/explicit_layer.d", LayerType::Explicit),
         QPair<QString, LayerType>("/usr/local/etc/vulkan/implicit_layer.d", LayerType::Implicit),

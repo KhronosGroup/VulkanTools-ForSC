@@ -19,3 +19,6 @@ set(LAYERMGR_SRCS
 
 add_executable(vklayermanager ${LAYERMGR_SRCS})
 target_link_libraries(vklayermanager Qt5::Core Qt5::Gui Qt5::Widgets)
+if(WIN32)
+    target_link_libraries(vklayermanager Cfgmgr32)
+endif()

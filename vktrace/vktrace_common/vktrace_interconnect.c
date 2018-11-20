@@ -155,7 +155,6 @@ BOOL vktrace_MessageStream_SetupHostSocket(MessageStream* pStream) {
 #endif
     hr = bind(listenSocket, pStream->mHostAddressInfo->ai_addr, (int)pStream->mHostAddressInfo->ai_addrlen);
     if (hr == SOCKET_ERROR) {
-        vktrace_LogError("Host: Failed binding socket err=%d.", VKTRACE_WSAGetLastError());
         freeaddrinfo(pStream->mHostAddressInfo);
         pStream->mHostAddressInfo = NULL;
         closesocket(listenSocket);
@@ -168,7 +167,6 @@ BOOL vktrace_MessageStream_SetupHostSocket(MessageStream* pStream) {
 
     hr = listen(listenSocket, 1);
     if (hr == SOCKET_ERROR) {
-        vktrace_LogError("Host: Failed listening on socket err=%d.", VKTRACE_WSAGetLastError());
         closesocket(listenSocket);
         return FALSE;
     }
@@ -179,7 +177,6 @@ BOOL vktrace_MessageStream_SetupHostSocket(MessageStream* pStream) {
     closesocket(listenSocket);
 
     if (pStream->mSocket == INVALID_SOCKET) {
-        vktrace_LogError("Host: Failed accepting socket connection.");
         return FALSE;
     }
 
@@ -236,8 +233,8 @@ BOOL vktrace_MessageStream_SetupClientSocket(MessageStream* pStream) {
         return FALSE;
     }
 
-    // make several attempts to connect before bailing out
-    for (attempt = 0; attempt < 10 && !bConnected; attempt++) {
+    // Make several attempts to connect before bailing out
+    for (attempt = 0; attempt < 4 && !bConnected; attempt++) {
         for (currentAttempt = pStream->mHostAddressInfo; currentAttempt != NULL; currentAttempt = currentAttempt->ai_next) {
             pStream->mSocket = socket(currentAttempt->ai_family, currentAttempt->ai_socktype, currentAttempt->ai_protocol);
 
@@ -267,7 +264,6 @@ BOOL vktrace_MessageStream_SetupClientSocket(MessageStream* pStream) {
 #endif
 
     if (pStream->mSocket == INVALID_SOCKET) {
-        vktrace_LogError("Client: Couldn't find any connections.");
         return FALSE;
     }
 

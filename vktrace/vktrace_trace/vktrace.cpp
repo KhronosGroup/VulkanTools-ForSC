@@ -33,6 +33,7 @@ extern "C" {
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/file.h>
 #include "screenshot_parsing.h"
 
 vktrace_settings g_settings;
@@ -304,6 +305,50 @@ static void vktrace_appendPortabilityPacket(FILE* pTraceFile) {
     vktrace_LogVerbose("Post processing of trace file completed");
 }
 
+// Queries whether program is running
+static bool isRunning(const char *tmpFile) {
+    int fd=open(tmpFile, O_WRONLY|O_CREAT, 0600);
+    bool rval;
+    if (fd < 0) {
+        vktrace_LogError("Cannot open tmp file");
+    }
+    rval = (flock(fd, LOCK_EX|LOCK_NB) < 0);
+    flock(fd, LOCK_UN);
+    close(fd);
+    return rval;
+}
+
+// Locks a file to indicate a program is running. Returns true if successfully locked.
+// If file was already locked, returns false.
+// Note that the fd is not closed (it needs to stay open in order to keep the lock). After
+// this function is called, the current program should either keep the lock and run to
+// completion or exit immediately.
+static bool setRunning(const char *tmpFile) {
+    int fd=open(tmpFile, O_WRONLY|O_CREAT, 0600);
+    bool rval;
+    if (fd < 0) {
+        vktrace_LogError("Cannot open tmp file");
+    }
+    rval = (flock(fd, LOCK_EX|LOCK_NB) == 0); // flock returns 0 if successfully locked
+    return rval;
+}
+
+static bool isVktraceProgRunning() {
+    return isRunning("/tmp/tmp_vktraceProg");
+}
+
+static bool setVktraceProgRunning() {
+    return setRunning("/tmp/tmp_vktraceProg");
+}
+
+static bool isVktraceServerRunning() {
+    return isRunning("/tmp/tmp_vktraceServer");
+}
+
+static bool setVktraceServerRunning() {
+    return setRunning("/tmp/tmp_vktraceServer");
+}
+
 // ------------------------------------------------------------------------------------------------
 int main(int argc, char* argv[]) {
     int exitval = 0;
@@ -386,10 +431,26 @@ int main(int argc, char* argv[]) {
 
         if (g_settings.program == NULL || strlen(g_settings.program) == 0) {
             vktrace_LogWarning("No program (-p) parameter found: Will run vktrace as server.");
-            printf("Running vktrace as server...\n");
-            fflush(stdout);
             g_settings.arguments = NULL;
+            if (isVktraceProgRunning()) {
+                vktrace_LogError("Cannot run vktrace server when vktrace with -p is running");
+                return -1;
+            }
+            setVktraceServerRunning();
         } else {
+
+            if (isVktraceServerRunning() || isVktraceProgRunning()) {
+                vktrace_LogAlways("vktrace is running, waiting for it to complete beofer proceeding...");
+                do {
+                    sleep(1);
+                } while (isVktraceServerRunning() || isVktraceProgRunning());
+            }
+
+            if (!setVktraceProgRunning()) {
+                vktrace_LogError("Cannot run vktrace -p when a vktrace with -p is running...");
+                return -1;
+            }
+
             if (g_settings.working_dir == NULL || strlen(g_settings.working_dir) == 0) {
                 CHAR* buf = VKTRACE_NEW_ARRAY(CHAR, 4096);
                 vktrace_LogVerbose("No working directory (-w) parameter found: Assuming executable's path as working directory.");

@@ -23,8 +23,9 @@ else()
 
     if(NOT Qt_QWebEngineWidgets_FOUND)
         message("WARNING: vkconfig will not include vulkaninfo or via because Qt Web Engine Widgets was not found.")
-        set(VKCONFIG_HTML_LIBS Qt5::WebEngineWidgets)
         set(VKCONFIG_DEFINITIONS -DNO_HTML)
+    else()
+        set(VKCONFIG_HTML_LIBS Qt5::WebEngineWidgets)
     endif()
 
     if(NOT APPLE)

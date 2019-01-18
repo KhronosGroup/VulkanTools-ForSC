@@ -101,15 +101,21 @@ LayerManager::LayerManager()
     QHBoxLayout *button_layout = new QHBoxLayout();
     save_button = new QPushButton(tr("Save"));
     save_button->setToolTip(tr("Save layers and settings"));
+#if !defined(NO_HTML)
     save_button->setEnabled(false);
+#endif
     button_layout->addWidget(save_button, 0);
     restore_button = new QPushButton(tr("Restore"));
     restore_button->setToolTip(tr("Restore to last saved state"));
+#if !defined(NO_HTML)
     restore_button->setEnabled(false);
+#endif
     button_layout->addWidget(restore_button, 0);
     clear_button = new QPushButton(tr("Clear"));
     clear_button->setToolTip(tr("Clear saved layers and settings"));
+#if !defined(NO_HTML)
     clear_button->setEnabled(false);
+#endif
     button_layout->addWidget(clear_button, 0);
 
     button_layout->addSpacing(24);
@@ -223,7 +229,11 @@ void LayerManager::saveAll()
 
 void LayerManager::tabChanged(int index)
 {
+#if !defined(NO_HTML)
     bool enabled = index == 1;
+#else
+    bool enabled = true;
+#endif
     save_button->setEnabled(enabled);
     restore_button->setEnabled(enabled);
     clear_button->setEnabled(enabled);

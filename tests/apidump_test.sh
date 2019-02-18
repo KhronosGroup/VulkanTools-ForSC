@@ -54,6 +54,13 @@ fi
 
 pushd $(dirname "${BASH_SOURCE[0]}")
 
+# DEBUG - see if apidump_file.tmp alread exists
+if [ -f apidump_file.tmp ]
+then
+    echo apidump_file.txt already exists!!
+    ls -l `pwd`/apidump_file.tmp
+fi
+
 VULKANINFO="$VULKAN_TOOLS_BUILD_DIR/install/bin/vulkaninfo"
 VK_ICD_FILENAMES="$VULKAN_TOOLS_BUILD_DIR/icd/VkICD_mock_icd.json" \
     VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_api_dump \
@@ -61,7 +68,7 @@ VK_ICD_FILENAMES="$VULKAN_TOOLS_BUILD_DIR/icd/VkICD_mock_icd.json" \
 
 printf "$GREEN[ RUN      ]$NC $0\n"
 echo DISPLAY=$DISPLAY         # Debug
-ls -l apidump_file.tmp        # Debug
+ls -l `pwd`/apidump_file.tmp  # Debug
 if [ -f apidump_file.tmp ]
 then
     echo @===================@   # Debug

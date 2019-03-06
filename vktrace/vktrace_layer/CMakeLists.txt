@@ -79,15 +79,15 @@ if (NOT WIN32)
     set (GIPA VK_LAYER_LUNARG_vktraceGetInstanceProcAddr)
     set (GDPA VK_LAYER_LUNARG_vktraceGetDeviceProcAddr)
 else()
-    set (GIPA __HOOKED_vktraceGetInstanceProcAddr)
-    set (GDPA __HOOKED_vktraceGetDeviceProcAddr)
+    set (GIPA __HOOKED_vkGetInstanceProcAddr)
+    set (GDPA __HOOKED_vkGetDeviceProcAddr)
 endif()
 
 # json file creation
 
 # The output file needs Unix "/" separators or Windows "\" separators.
 # On top of that, Windows separators actually need to be doubled because the json format uses backslash escapes.
-file(TO_NATIVE_PATH "../" RELATIVE_PATH_PREFIX)
+file(TO_NATIVE_PATH "./" RELATIVE_PATH_PREFIX)
 string(REPLACE "\\" "\\\\" RELATIVE_PATH_PREFIX "${RELATIVE_PATH_PREFIX}")
 # Run the .json.in file through the generator.
 # We need to create the generator.cmake script so that the generator can be run at compile time, instead of configure time.
@@ -99,20 +99,40 @@ set(CONFIG_DEFINES
     -DINPUT_FILE="${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_NAME}.json.in"
     -DVK_VERSION="${VulkanHeaders_VERSION_MAJOR}.${VulkanHeaders_VERSION_MINOR}.${VulkanHeaders_VERSION_PATCH}"
 )
-set(CONFIG_DEFINES ${CONFIG_DEFINES}
-    -DOUTPUT_FILE="${CMAKE_CURRENT_BINARY_DIR}/../../layersvt/${TARGET_NAME}.json"
-    -DRELATIVE_LAYER_BINARY="${RELATIVE_PATH_PREFIX}vktrace/$<TARGET_FILE_NAME:${TARGET_NAME}>"
-)
+if(WIN32)
+    set(CONFIG_DEFINES ${CONFIG_DEFINES}
+        -DOUTPUT_FILE="${CMAKE_CURRENT_BINARY_DIR}/../../layersvt/$<CONFIGURATION>/${TARGET_NAME}.json"
+        -DRELATIVE_LAYER_BINARY="${RELATIVE_PATH_PREFIX}$<TARGET_FILE_NAME:${TARGET_NAME}>"
+    )
+else()
+    set(CONFIG_DEFINES ${CONFIG_DEFINES}
+        -DOUTPUT_FILE="${CMAKE_CURRENT_BINARY_DIR}/../../layersvt/${TARGET_NAME}.json"
+        -DRELATIVE_LAYER_BINARY="${RELATIVE_PATH_PREFIX}$<TARGET_FILE_NAME:${TARGET_NAME}>"
+    )
+endif()
 add_custom_target(${TARGET_NAME}-json ALL COMMAND ${CMAKE_COMMAND} ${CONFIG_DEFINES} -P "${CMAKE_CURRENT_BINARY_DIR}/generator.cmake")
-# This works for Linux, but wil it work on Wihdows?
-# Need diff command for Windows and Linux???
-add_custom_target(${TARGET_NAME}-staging-json ALL
-        COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/staging-json
-        COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/../../layersvt/${TARGET_NAME}.json ${CMAKE_CURRENT_BINARY_DIR}/staging-json
-        COMMAND sed -i -e "/.library_path.:/s=../vktrace/libVkLayer=libVkLayer=" ${CMAKE_CURRENT_BINARY_DIR}/staging-json/${TARGET_NAME}.json
-        VERBATIM
-        DEPENDS ${TARGET_NAME}-json
-        )
+# Add target for JSON file install
+# IF WIN32 is a no-op, why isn't Linux??????????????????
+if (WIN32)
+#        file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}\\${TARGET_NAME}-staging-dir-json STAGING_DIR)
+#        string(REPLACE "\\" "\\\\" STAGING_DIR "${STAGING_DIR}")
+#        file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}\\${TARGET_NAME}.json JSON_FILE)
+#        string(REPLACE "\\" "\\\\" JSON_FILE "${JSON_FILE}")
+#        add_custom_target(${TARGET_NAME}-staging-json ALL
+#                COMMAND mkdir ${STAGING_DIR}
+#                COMMAND copy ${JSON_FILE} ${STAGING_DIR}
+#                VERBATIM
+#                DEPENDS ${TARGET_NAME}-json
+#                )
+else()
+    add_custom_target(${TARGET_NAME}-staging-json ALL
+            COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/staging-json
+            COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/../../layersvt/${TARGET_NAME}.json ${CMAKE_CURRENT_BINARY_DIR}/staging-json
+            COMMAND sed -i -e "/.library_path.:/s=../libVkLayer=libVkLayer=" ${CMAKE_CURRENT_BINARY_DIR}/staging-json/${TARGET_NAME}.json
+            VERBATIM
+            DEPENDS ${TARGET_NAME}-json
+            )
+endif()
 
 add_library(${PROJECT_NAME} SHARED ${SRC_LIST} ${HDR_LIST})
 

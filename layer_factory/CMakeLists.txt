@@ -99,52 +99,59 @@ foreach(SUBDIR ${ST_SUBDIRS})
         -DRELATIVE_LAYER_BINARY="${RELATIVE_PATH_PREFIX}$<TARGET_FILE_NAME:${TARGET_NAME}>"
         -DLAYER_NAME="VK_LAYER_LUNARG_${SUBDIR}"
     )
-    # Should this also be done on Windows????
-    if(UNIX AND (CMAKE_CURRENT_BINARY_DIR MATCHES ".*layer_factor.*"))
-        add_custom_target(${TARGET_NAME}-json ALL
-                COMMAND ${CMAKE_COMMAND} ${CONFIG_DEFINES} -P "${CMAKE_CURRENT_BINARY_DIR}/generator.cmake"
-                COMMAND ${CMAKE_COMMAND} -E copy ${JSON_DEST_PATH}/VkLayer_${SUBDIR}.json ${CMAKE_CURRENT_BINARY_DIR}/../layers/staging-json
-                COMMAND sed -i -e "/library_path.:/s=./libVkLayer=libVkLayer=" ${CMAKE_CURRENT_BINARY_DIR}/../layers/staging-json/VkLayer_${SUBDIR}.json
-        )
+    if(CMAKE_CURRENT_BINARY_DIR MATCHES ".*layer_factor.*")
+        if(WIN32)
+            add_custom_target(${TARGET_NAME}-json ALL
+                    COMMAND ${CMAKE_COMMAND} ${CONFIG_DEFINES} -P "${CMAKE_CURRENT_BINARY_DIR}/generator.cmake"
+                    COMMAND ${CMAKE_COMMAND} -E copy ${JSON_DEST_PATH}/VkLayer_${SUBDIR}.json ${CMAKE_CURRENT_BINARY_DIR}/../layers/staging-json
+            )
+        else()
+            add_custom_target(${TARGET_NAME}-json ALL
+                    COMMAND ${CMAKE_COMMAND} ${CONFIG_DEFINES} -P "${CMAKE_CURRENT_BINARY_DIR}/generator.cmake"
+                    COMMAND ${CMAKE_COMMAND} -E copy ${JSON_DEST_PATH}/VkLayer_${SUBDIR}.json ${CMAKE_CURRENT_BINARY_DIR}/../layers/staging-json
+                    COMMAND sed -i -e "/library_path.:/s=./libVkLayer=libVkLayer=" ${CMAKE_CURRENT_BINARY_DIR}/../layers/staging-json/VkLayer_${SUBDIR}.json
+            )
+        endif()
     endif()
+
+    if (WIN32)
+        macro(add_factory_layer target subdir)
+        # Read in def file template, update with new layer name and write to destination
+        file(READ ${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_layer_factory.def def_file_template)
+        string(REPLACE "layer_factory" ${target} target_def_file ${def_file_template})
+        file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/VkLayer_${target}.def ${target_def_file})
+        # Edit json template and copy to build\layers dir at cmake time
+        file(READ "${JSON_TEMPLATE_PATH}" json_file_template)
+        string(REPLACE "layer_factory" "${target}" target_json_file "${json_file_template}")
+        file(TO_NATIVE_PATH ${JSON_DEST_PATH}/VkLayer_${target}.json dst_json)
+        file(WRITE ${dst_json} ${target_json_file})
+        # Copy target json file from build/layers to final directory at compile time
+        file(TO_NATIVE_PATH ${JSON_DECORATED_DEST_PATH}/VkLayer_${target}.json decorated_dst_json)
+        add_custom_target(${target}json-copy ALL
+            COMMAND ${CMAKE_COMMAND} -E copy ${dst_json} ${decorated_dst_json}
+            VERBATIM
+            )
+        set_target_properties(${target}json-copy PROPERTIES FOLDER ${VULKANTOOLS_TARGET_FOLDER})
+
+        add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
+        target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY})
+        target_include_directories(VkLayer_${target} PRIVATE ${subdir})
+        endmacro()
+    else()
+        macro(add_factory_layer target subdir)
+        # Create custom target for the copies so that json template is copied and edited at compile time
+        file(READ "${JSON_TEMPLATE_PATH}" json_file_template)
+        string(REPLACE "layer_factory" "${target}" target_json_file "${json_file_template}")
+        file(TO_NATIVE_PATH ${JSON_DEST_PATH}/VkLayer_${target}.json dst_json)
+        file(WRITE ${dst_json} ${target_json_file})
+        add_library(VkLayer_${target} SHARED ${ARGN})
+        target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY})
+        target_include_directories(VkLayer_${target} PRIVATE ${subdir})
+        set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic,--exclude-libs,ALL")
+        endmacro()
+    endif()
+
 endforeach()
-
-if (WIN32)
-    macro(add_factory_layer target subdir)
-    # Read in def file template, update with new layer name and write to destination
-    file(READ ${CMAKE_CURRENT_SOURCE_DIR}/VkLayer_layer_factory.def def_file_template)
-    string(REPLACE "layer_factory" ${target} target_def_file ${def_file_template})
-    file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/VkLayer_${target}.def ${target_def_file})
-    # Edit json template and copy to build\layers dir at cmake time
-    file(READ "${JSON_TEMPLATE_PATH}" json_file_template)
-    string(REPLACE "layer_factory" "${target}" target_json_file "${json_file_template}")
-    file(TO_NATIVE_PATH ${JSON_DEST_PATH}/VkLayer_${target}.json dst_json)
-    file(WRITE ${dst_json} ${target_json_file})
-    # Copy target json file from build/layers to final directory at compile time
-    file(TO_NATIVE_PATH ${JSON_DECORATED_DEST_PATH}/VkLayer_${target}.json decorated_dst_json)
-    add_custom_target(${target}json-copy ALL
-        COMMAND ${CMAKE_COMMAND} -E copy ${dst_json} ${decorated_dst_json}
-        VERBATIM
-        )
-    set_target_properties(${target}json-copy PROPERTIES FOLDER ${VULKANTOOLS_TARGET_FOLDER})
-
-    add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
-    target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY})
-    target_include_directories(VkLayer_${target} PRIVATE ${subdir})
-    endmacro()
-else()
-    macro(add_factory_layer target subdir)
-    # Create custom target for the copies so that json template is copied and edited at compile time
-    file(READ "${JSON_TEMPLATE_PATH}" json_file_template)
-    string(REPLACE "layer_factory" "${target}" target_json_file "${json_file_template}")
-    file(TO_NATIVE_PATH ${JSON_DEST_PATH}/VkLayer_${target}.json dst_json)
-    file(WRITE ${dst_json} ${target_json_file})
-    add_library(VkLayer_${target} SHARED ${ARGN})
-    target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY})
-    target_include_directories(VkLayer_${target} PRIVATE ${subdir})
-    set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic,--exclude-libs,ALL")
-    endmacro()
-endif()
 
 set (CMAKE_LAYER_FACTORY_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 SUBDIRLIST(ST_SUBDIRS ${CMAKE_LAYER_FACTORY_SOURCE_DIR})

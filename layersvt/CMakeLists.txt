@@ -131,14 +131,27 @@ foreach(TARGET_NAME ${TARGET_NAMES})
 
     add_custom_target(${TARGET_NAME}-json ALL COMMAND ${CMAKE_COMMAND} ${CONFIG_DEFINES} -P "${CMAKE_CURRENT_BINARY_DIR}/generator.cmake")
 
-    # Add target for JSON file install on Linux.  PUT if(UNIX) AROUND THIS? AND IN OTHER CMakeLists.txt????   @@@@@@@@@@@@@@INVESTIGATE, AND CHECK WINDOWS!!!
-    # INSTALL CURRENTLY DOES NOT WORK
-    add_custom_target(${TARGET_NAME}-staging-json ALL
-            COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/staging-json
-            COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.json ${CMAKE_CURRENT_BINARY_DIR}/staging-json
-            COMMAND sed -i -e "/.library_path.:/s=./libVkLayer=libVkLayer=" ${CMAKE_CURRENT_BINARY_DIR}/staging-json/${TARGET_NAME}.json
-            VERBATIM
-            DEPENDS ${TARGET_NAME}-json
-            )
+    # Add target for JSON file install.
+    # If win32 is a no-op, why isn't Linux?
+    if(WIN32)
+#        file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}\\${TARGET_NAME}-staging-dir-json STAGING_DIR)
+#        string(REPLACE "\\" "\\\\" STAGING_DIR "${STAGING_DIR}")
+#        file(TO_NATIVE_PATH ${CMAKE_CURRENT_BINARY_DIR}\\${TARGET_NAME}.json JSON_FILE)
+#        string(REPLACE "\\" "\\\\" JSON_FILE "${JSON_FILE}")
+#        add_custom_target(${TARGET_NAME}-staging-json ALL
+#                COMMAND mkdir ${STAGING_DIR}
+#                COMMAND copy ${JSON_FILE} ${STAGING_DIR}
+#                VERBATIM
+#                DEPENDS ${TARGET_NAME}-json
+#                )
+    else()
+        add_custom_target(${TARGET_NAME}-staging-json ALL
+                COMMAND mkdir -p ${CMAKE_CURRENT_BINARY_DIR}/staging-json
+                COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.json ${CMAKE_CURRENT_BINARY_DIR}/staging-json
+                COMMAND sed -i -e "/.library_path.:/s=./libVkLayer=libVkLayer=" ${CMAKE_CURRENT_BINARY_DIR}/staging-json/${TARGET_NAME}.json
+                VERBATIM
+                DEPENDS ${TARGET_NAME}-json
+                )
+    endif()
 
 endforeach()

@@ -392,3 +392,11 @@ int main(int argc, char** argv) {
 
     return ret;
 }
+
+
+// This is a stub.
+// It is needed because we include vktrace_vk_vk_packets.h and vktrace_vk_vk_packets.h
+// expects all modules that include it to define this function.
+void vkreplay_interpret_pnext_handles(void *struct_ptr)
+{
+}

@@ -741,6 +741,13 @@ int vkreplay_main(int argc, char** argv, vktrace_replay::ReplayDisplayImp* pDisp
     return err;
 }
 
+// This is a stub.
+// It is needed because we (indirectly) include vktrace_vk_vk_packets.h and
+// vktrace_vk_vk_packets.h expects all modules that include it to define this function.
+void vkreplay_interpret_pnext_handles(void *struct_ptr)
+{
+}
+
 #if defined(ANDROID)
 static bool initialized = false;
 static bool active = false;

@@ -162,7 +162,6 @@ void VKTRACER_CDECL VkReplayResetFrameNumber(int frameNumber) {
 // because only an instance of the vkReplay class can interpret handles.
 void vkreplay_interpret_pnext_handles(void *struct_ptr)
 {
-    printf("@@@= 1");
     if (g_pReplayer != NULL) {
         g_pReplayer->interpret_pnext_handles(struct_ptr);
     }

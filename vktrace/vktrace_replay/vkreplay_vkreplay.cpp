@@ -2285,17 +2285,6 @@ VkResult vkReplay::manually_replay_vkAllocateMemory(packet_vkAllocateMemory *pPa
         return VK_ERROR_VALIDATION_FAILED_EXT;
     }
 
-    if (pPacket->pAllocateInfo->pNext) {
-        VkDedicatedAllocationMemoryAllocateInfoNV *x = (VkDedicatedAllocationMemoryAllocateInfoNV *)(pPacket->pAllocateInfo->pNext);
-
-        if (x->sType == VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_MEMORY_ALLOCATE_INFO_NV ||
-            x->sType == VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO) {
-            x->image = m_objMapper.remap_images(x->image);
-            x->buffer = m_objMapper.remap_buffers(x->buffer);
-            if (!(x->image == VK_NULL_HANDLE || x->buffer == VK_NULL_HANDLE))
-                vktrace_LogError("Invalid handle in vkAllocateMemory pAllocate->pNext structure.");
-        }
-    }
     if (g_pReplaySettings->compatibilityMode && m_pFileHeader->portability_table_valid && !platformMatch()) {
         traceDeviceMemoryToMemoryTypeIndex[*(pPacket->pMemory)] = pPacket->pAllocateInfo->memoryTypeIndex;
     }
@@ -3216,19 +3205,6 @@ VkResult vkReplay::manually_replay_vkCreateSampler(packet_vkCreateSampler *pPack
     // No need to remap pCreateInfo
     // No need to remap pAllocator
 
-    // Remap conversion handles in pPacket->pCreateInfo->pNext structs.
-    // We only remap from m_objMapper.remap_samplerycbcrconversions because
-    // m_objMapper.add_to_samplerycbcrconversionkhrs_map is not used.
-    if (pPacket->pCreateInfo && pPacket->pCreateInfo->pNext) {
-        VkSamplerYcbcrConversionInfo *sci = (VkSamplerYcbcrConversionInfo *)pPacket->pCreateInfo->pNext;
-        while (sci) {
-            if (sci->sType == VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO) {
-                sci->conversion = m_objMapper.remap_samplerycbcrconversions(sci->conversion);
-                sci = (VkSamplerYcbcrConversionInfo *)sci->pNext;
-            }
-        }
-    }
-
     replayResult = m_vkDeviceFuncs.CreateSampler(remappeddevice, pPacket->pCreateInfo, pPacket->pAllocator, &local_pSampler);
     if (replayResult == VK_SUCCESS) {
         m_objMapper.add_to_samplers_map(*(pPacket->pSampler), local_pSampler);
@@ -3469,7 +3445,6 @@ VkResult vkReplay::manually_replay_vkQueuePresentKHR(packet_vkQueuePresentKHR *p
             replayResult = VK_ERROR_VALIDATION_FAILED_EXT;
             goto out;
         }
-
         present.sType = pPacket->pPresentInfo->sType;
         present.pNext = pPacket->pPresentInfo->pNext;
         present.swapchainCount = pPacket->pPresentInfo->swapchainCount;
@@ -4817,96 +4792,132 @@ VkResult vkReplay::manually_replay_vkEnumerateDeviceExtensionProperties(packet_v
 void vkReplay::interpret_pnext_handles(void *struct_ptr)
 {
     VkApplicationInfo *pnext = (VkApplicationInfo *)struct_ptr;
+    
+    // SHOULD THIS BE DONE, OR SHOULD WE START WITH THE "HEAD" STRUCUTRE?
     if (pnext) pnext = (VkApplicationInfo *)pnext->pNext;
 
-    // Loop through all the pnext structures attached to struct_ptr
+    // Loop through all the pnext structures attached to struct_ptr and
+    // remap handles in those structures.
+
+    // We process all Vulkan structures that have a pNext and at least one handle. Some of these structs may be passed
+    // in as args to api calls but never appear in the pNext chain. Better to be complete than not handle all of them.
+    // Ideally, this function would be automatically generated. It's not, so if a new structure is added to Vulkan,
+    // this function should add handling of that structure.
+    // The list of structures processed here may not be complete.
+
     while (pnext)
     {
         switch (pnext->sType) {
         case VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO: {
-            VkDeviceGroupDeviceCreateInfo *p2 = (VkDeviceGroupDeviceCreateInfo *)pnext;
-            *((VkPhysicalDevice *)p2->pPhysicalDevices) = m_objMapper.remap_physicaldevices(*p2->pPhysicalDevices);
-            for (uint32_t i = 0; i < p2->physicalDeviceCount; i++) {
-                *(VkPhysicalDevice *)(&p2->pPhysicalDevices[i]) = m_objMapper.remap_physicaldevices(p2->pPhysicalDevices[i]);
+            VkDeviceGroupDeviceCreateInfo *p = (VkDeviceGroupDeviceCreateInfo *)pnext;
+            *((VkPhysicalDevice *)p->pPhysicalDevices) = m_objMapper.remap_physicaldevices(*p->pPhysicalDevices);
+            for (uint32_t i = 0; i < p->physicalDeviceCount; i++) {
+                *((VkPhysicalDevice *)(&p->pPhysicalDevices[i])) = m_objMapper.remap_physicaldevices(p->pPhysicalDevices[i]);
             }
         } break;
+        case VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO: {
+            VkSamplerYcbcrConversionInfo *p = (VkSamplerYcbcrConversionInfo *)pnext;
+            p->conversion = m_objMapper.remap_samplerycbcrconversions(p->conversion);
+        } break;
+        case VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_MEMORY_ALLOCATE_INFO_NV:
+        case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO: {
+            VkDedicatedAllocationMemoryAllocateInfoNV *p = (VkDedicatedAllocationMemoryAllocateInfoNV *)pnext;
+            p->image = m_objMapper.remap_images(p->image);
+            p->buffer = m_objMapper.remap_buffers(p->buffer);
+        } break;
+        case VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV: {
+            VkAccelerationStructureMemoryRequirementsInfoNV *p = (VkAccelerationStructureMemoryRequirementsInfoNV *)pnext;
+            p->accelerationStructure = m_objMapper.remap_accelerationstructurenvs(p->accelerationStructure);
+        } break;
+        case VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR: {
+            VkAcquireNextImageInfoKHR *p = (VkAcquireNextImageInfoKHR *)pnext;
+            p->swapchain = m_objMapper.remap_swapchainkhrs(p->swapchain);
+            p->semaphore = m_objMapper.remap_semaphores(p->semaphore);
+            p->fence = m_objMapper.remap_fences(p->fence);
+        } break;
+        case VK_STRUCTURE_TYPE_BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_NV: {
+            VkBindAccelerationStructureMemoryInfoNV *p = (VkBindAccelerationStructureMemoryInfoNV *)pnext;
+            p->accelerationStructure = m_objMapper.remap_accelerationstructurenvs(p->accelerationStructure);
+            p->memory = m_objMapper.remap_devicememorys(p->memory);
+        } break;
         default:
-            vktrace_LogWarning("structure sType not handled Format %d is not supported for presentable images, using format %d",
+            vktrace_LogWarning("sType %d not handled in interpret_pnext_handles\n",  pnext->sType);
             break;
         }
         pnext = (VkApplicationInfo *)pnext->pNext;
     }
     return;
 }
+
 #if 0
+Here is the list of structure types the above func needs to handle
 
-Here's the list of structure types the above func needs to handle
-
-x VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO
-  VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV
-  VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR
-  VK_STRUCTURE_TYPE_BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_NV
-  VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO
-  VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO
-  VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHR
-  VK_STRUCTURE_TYPE_BIND_SPARSE_INFO
-  VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_EXT
-  VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER
-  VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO2
-  VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO
-  VK_STRUCTURE_TYPE_CMD_PROCESS_COMMANDS_INFO_NVX
-  VK_STRUCTURE_TYPE_CMD_RESERVE_SPACE_FOR_COMMANDS_INFO_NVX
-  VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO
-  VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
-  VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO
-  VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO
-  VK_STRUCTURE_TYPE_CONDITIONAL_RENDERING_BEGIN_INFO_EXT
-  VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET
-  VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_MEMORY_ALLOCATE_INFO_NV
-  VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_INFO
-  VK_STRUCTURE_TYPE_DESCRIPTOR_IMAGE_INFO
-  VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO
-  VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO
-  VK_STRUCTURE_TYPE_DISPLAY_PLANE_INFO2_KHR
-  VK_STRUCTURE_TYPE_FENCE_GET_FD_INFO_KHR
-  VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO
-  VK_STRUCTURE_TYPE_GEOMETRY_A_A_B_B_NV
-  VK_STRUCTURE_TYPE_GEOMETRY_DATA_NV
-  VK_STRUCTURE_TYPE_GEOMETRY_NV
-  VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV
-  VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO
-  VK_STRUCTURE_TYPE_HDR_METADATA_EXT
-  VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER
-  VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO2
-  VK_STRUCTURE_TYPE_IMAGE_SPARSE_MEMORY_REQUIREMENTS_INFO2
-  VK_STRUCTURE_TYPE_IMAGE_SWAPCHAIN_CREATE_INFO_KHR
-  VK_STRUCTURE_TYPE_IMAGE_VIEW_A_S_T_C_DECODE_MODE_EXT
-  VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
-  VK_STRUCTURE_TYPE_IMPORT_FENCE_FD_INFO_KHR
-  VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR
-  VK_STRUCTURE_TYPE_INDIRECT_COMMANDS_TOKEN_NVX
-  VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE
-  VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO
-  VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR
-  VK_STRUCTURE_TYPE_OBJECT_TABLE_INDEX_BUFFER_ENTRY_NVX
-  VK_STRUCTURE_TYPE_OBJECT_TABLE_PIPELINE_ENTRY_NVX
-  VK_STRUCTURE_TYPE_OBJECT_TABLE_PUSH_CONSTANT_ENTRY_NVX
-  VK_STRUCTURE_TYPE_OBJECT_TABLE_VERTEX_BUFFER_ENTRY_NVX
-  VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES
-  VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO2_KHR
-  VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
-  VK_STRUCTURE_TYPE_PRESENT_INFO_KHR
-  VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_NV
-  VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO
-  VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR
-  VK_STRUCTURE_TYPE_SHADER_MODULE_VALIDATION_CACHE_CREATE_INFO_EXT
-  VK_STRUCTURE_TYPE_SPARSE_BUFFER_MEMORY_BIND_INFO
-  VK_STRUCTURE_TYPE_SPARSE_IMAGE_MEMORY_BIND
-  VK_STRUCTURE_TYPE_SPARSE_IMAGE_MEMORY_BIND_INFO
-  VK_STRUCTURE_TYPE_SPARSE_IMAGE_OPAQUE_MEMORY_BIND_INFO
-  VK_STRUCTURE_TYPE_SPARSE_MEMORY_BIND
-  VK_STRUCTURE_TYPE_SUBMIT_INFO
-  VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR
-  VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET
-  VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_NV
+     1	x VK_STRUCTURE_TYPE_DEVICE_GROUP_DEVICE_CREATE_INFO
+     2	x VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO
+     3	x VK_STRUCTURE_TYPE_DEDICATED_ALLOCATION_MEMORY_ALLOCATE_INFO_NV
+     4	x VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO
+     5	x VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV
+     6	x VK_STRUCTURE_TYPE_ACQUIRE_NEXT_IMAGE_INFO_KHR
+     7	x VK_STRUCTURE_TYPE_BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_NV
+     8	  VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO
+     9	  VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO
+    10	  VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHR
+    11	  VK_STRUCTURE_TYPE_BIND_SPARSE_INFO
+    12	  VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_EXT
+    13	  VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER
+    14	  VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO2
+    15	  VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO
+    16	  VK_STRUCTURE_TYPE_CMD_PROCESS_COMMANDS_INFO_NVX
+    17	  VK_STRUCTURE_TYPE_CMD_RESERVE_SPACE_FOR_COMMANDS_INFO_NVX
+    18	  VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO
+    19	  VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
+    20	  VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO
+    21	  VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO
+    22	  VK_STRUCTURE_TYPE_CONDITIONAL_RENDERING_BEGIN_INFO_EXT
+    23	  VK_STRUCTURE_TYPE_COPY_DESCRIPTOR_SET
+    24	  VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_INFO
+    25	  VK_STRUCTURE_TYPE_DESCRIPTOR_IMAGE_INFO
+    26	  VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO
+    27	  VK_STRUCTURE_TYPE_DESCRIPTOR_UPDATE_TEMPLATE_CREATE_INFO
+    28	  VK_STRUCTURE_TYPE_DISPLAY_PLANE_INFO2_KHR
+    29	  VK_STRUCTURE_TYPE_FENCE_GET_FD_INFO_KHR
+    30	  VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO
+    31	  VK_STRUCTURE_TYPE_GEOMETRY_A_A_B_B_NV
+    32	  VK_STRUCTURE_TYPE_GEOMETRY_DATA_NV
+    33	  VK_STRUCTURE_TYPE_GEOMETRY_NV
+    34	  VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV
+    35	  VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO
+    36	  VK_STRUCTURE_TYPE_HDR_METADATA_EXT
+    37	  VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER
+    38	  VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO2
+    39	  VK_STRUCTURE_TYPE_IMAGE_SPARSE_MEMORY_REQUIREMENTS_INFO2
+    40	  VK_STRUCTURE_TYPE_IMAGE_SWAPCHAIN_CREATE_INFO_KHR
+    41	  VK_STRUCTURE_TYPE_IMAGE_VIEW_A_S_T_C_DECODE_MODE_EXT
+    42	  VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
+    43	  VK_STRUCTURE_TYPE_IMPORT_FENCE_FD_INFO_KHR
+    44	  VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR
+    45	  VK_STRUCTURE_TYPE_INDIRECT_COMMANDS_TOKEN_NVX
+    46	  VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE
+    47	  VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR
+    48	  VK_STRUCTURE_TYPE_OBJECT_TABLE_INDEX_BUFFER_ENTRY_NVX
+    49	  VK_STRUCTURE_TYPE_OBJECT_TABLE_PIPELINE_ENTRY_NVX
+    50	  VK_STRUCTURE_TYPE_OBJECT_TABLE_PUSH_CONSTANT_ENTRY_NVX
+    51	  VK_STRUCTURE_TYPE_OBJECT_TABLE_VERTEX_BUFFER_ENTRY_NVX
+    52	  VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GROUP_PROPERTIES
+    53	  VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SURFACE_INFO2_KHR
+    54	  VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO
+    55	  VK_STRUCTURE_TYPE_PRESENT_INFO_KHR
+    56	  VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_NV
+    57	  VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO
+    58	  VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR
+    59	  VK_STRUCTURE_TYPE_SHADER_MODULE_VALIDATION_CACHE_CREATE_INFO_EXT
+    60	  VK_STRUCTURE_TYPE_SPARSE_BUFFER_MEMORY_BIND_INFO
+    61	  VK_STRUCTURE_TYPE_SPARSE_IMAGE_MEMORY_BIND
+    62	  VK_STRUCTURE_TYPE_SPARSE_IMAGE_MEMORY_BIND_INFO
+    63	  VK_STRUCTURE_TYPE_SPARSE_IMAGE_OPAQUE_MEMORY_BIND_INFO
+    64	  VK_STRUCTURE_TYPE_SPARSE_MEMORY_BIND
+    65	  VK_STRUCTURE_TYPE_SUBMIT_INFO
+    66	  VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR
+    67	  VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET
+    68	  VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_NV
 #endif

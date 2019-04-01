@@ -404,6 +404,23 @@ std::ostream& dump_text_{sctName}(const {sctName}& object, const ApiDumpSettings
 std::ostream& dump_text_{unName}(const {unName}& object, const ApiDumpSettings& settings, int indents);
 @end union
 
+std::ostream& dump_text_pnext(const void *pointer, const ApiDumpSettings& settings, int indents) {{
+    if (pointer == NULL) {{
+        settings.formatNameType(settings.stream(), indents, "pNext", "void*");
+        return dump_text_void(pointer, settings, indents) << "\\n";
+    }}
+    switch (*reinterpret_cast<const VkStructureType*>(pointer)) {{
+        @foreach struct where(len({sctExtends}) > 0)
+        case {sctSType}:
+            settings.formatNameType(settings.stream(), indents, "pNext", "{sctName}*");
+            return dump_text_{sctName}(*reinterpret_cast<const {sctName}*>(pointer), settings, indents);
+        @end struct
+        default:
+            settings.formatNameType(settings.stream(), indents, "pNext", "void*");
+            return dump_text_void(pointer, settings, indents) << "\\n";
+    }}
+}}
+
 //=========================== Type Implementations ==========================//
 
 @foreach type where('{etyName}' != 'void')
@@ -535,7 +552,10 @@ std::ostream& dump_text_{sctName}(const {sctName}& object, const ApiDumpSettings
     if({memCondition})
     @end if
 
-    @if({memPtrLevel} == 0)
+    @if('{memName}' == 'pNext')
+    dump_text_pnext(object.{memName}, settings, indents + 1);
+    @end if
+    @if('{memName}' != 'pNext' and {memPtrLevel} == 0)
     dump_text_value<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 1, dump_text_{memTypeID}{memInheritedConditions});
     @end if
     @if({memPtrLevel} == 1 and '{memLength}' == 'None')
@@ -553,6 +573,7 @@ std::ostream& dump_text_{sctName}(const {sctName}& object, const ApiDumpSettings
         dump_text_special("UNUSED", settings, "{memType}", "{memName}", indents + 1);
     @end if
     @end member
+
     return settings.stream();
 }}
 @end struct
@@ -1875,9 +1896,19 @@ class VulkanStruct:
 
     def __init__(self, rootNode, constants):
         self.name = rootNode.get('name')
+
+        self.extends = []
+        if 'structextends' in rootNode.keys():
+            self.extends = rootNode.get('structextends', '').split(',')
+
+        self.sType = ''
         self.members = []
         for node in rootNode.findall('member'):
-            self.members.append(VulkanStruct.Member(node, constants, self.name))
+            member = VulkanStruct.Member(node, constants, self.name)
+            self.members.append(member)
+            if member.name == 'sType':
+                self.sType = node.get('values')
+            
         self.conditionVars = ''
         if self.name in INHERITED_STATE:
             for parent, states in INHERITED_STATE[self.name].items():
@@ -1888,6 +1919,8 @@ class VulkanStruct:
         return {
             'sctName': self.name,
             'sctConditionVars': self.conditionVars,
+            'sctSType': self.sType,
+            'sctExtends': self.extends,
         }
 
 class VulkanSystemType:

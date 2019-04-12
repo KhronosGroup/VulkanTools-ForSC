@@ -1,6 +1,7 @@
 #!/bin/bash
 
 #set -vex
+set -x
 
 script_start_time=$(date +%s)
 

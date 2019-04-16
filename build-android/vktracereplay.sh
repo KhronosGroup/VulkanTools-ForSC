@@ -372,7 +372,7 @@ if [ -f $package\0.vktrace ]; then
 fi
 
 # grab the screenshot
-adb $serialFlag pull /sdcard/Android/$frame.ppm $package.$frame.vktrace.ppm
+adb $serialFlag pull /sdcard/Android/$frame.ppm $serialFlag.$package.$frame.vktrace.ppm
 adb $serialFlag shell mv /sdcard/Android/$frame.ppm /sdcard/Android/$package.$frame.vktrace.ppm
 
 # replay and screenshot
@@ -416,7 +416,7 @@ done
 set -e
 
 # grab the screenshot
-adb $serialFlag pull /sdcard/Android/$frame.ppm $package.$frame.vkreplay.ppm
+adb $serialFlag pull /sdcard/Android/$frame.ppm $serialFlag.$package.$frame.vkreplay.ppm
 adb $serialFlag shell mv /sdcard/Android/$frame.ppm /sdcard/Android/$package.$frame.vkreplay.ppm
 
 # clean up
@@ -438,15 +438,26 @@ else
     NC=''
 fi
 
-cmp -s $package.$frame.vktrace.ppm $package.$frame.vkreplay.ppm
+cmp -s $serialFlag.$package.$frame.vktrace.ppm $serialFlag.$package.$frame.vkreplay.ppm
 
 if [ $? -eq 0 ] ; then
-    printf "$GREEN[  PASSED  ]$NC {$apk-$package}\n"
+    printf "$GREEN[  PASSED  ]$NC {$apk-$package} identical images\n"
 else
-    printf "$RED[  FAILED  ]$NC screenshot file compare failed\n"
-    printf "$RED[  FAILED  ]$NC {$apk-$package}\n"
-    printf "TEST FAILED\n"
-    exit 1
+    # An ImageMagick comparison might work where an exact match failed
+    # The output will look like:
+    #    133.176 (0.00203213)
+    # We want the value in parentheses.  Generally, a threshold of 0.01 means the
+    # images are close enough to be casually indistinguishable.
+    metric=$(compare -metric RMSE $serialFlag.$package.$frame.vktrace.ppm $serialFlag.$package.$frame.vkreplay.ppm null: 2>&1 | sed -n '/^.*(\([0-9.]*\)).*$/s//\1/p')
+    # bash can't do floating-point comparison, but awk can.  Awk evaluates
+    # boolean expressions to 1 if true or 0 if false, so we need to reverse the
+    # sense of the comparison to get an exit value of 0 if good and 1 if bad.
+    if echo $metric | awk '{exit(!($1 < 0.01));}' ; then
+        printf "$GREEN[  PASSED  ]$NC {$apk-$package} similar images (RMSE=$metric)\n"
+    else
+        printf "$RED[  FAILED  ]$NC {$apk-$package} screenshot compare failed (RMSE=$metric)\n"
+        exit 1
+    fi
 fi
 
 exit 0

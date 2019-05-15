@@ -71,6 +71,7 @@ COMMON_CODEGEN = """
 
 #include "api_dump_text.h"
 #include "api_dump_html.h"
+#include "api_dump_json.h"
 
 //============================= Dump Functions ==============================//
 
@@ -85,6 +86,9 @@ inline void dump_{funcName}(ApiDumpInstance& dump_inst, {funcReturn} result, {fu
         break;
     case ApiDumpFormat::Html:
         dump_html_{funcName}(dump_inst, result, {funcNamedParams});
+        break;
+    case ApiDumpFormat::Json:
+        dump_json_{funcName}(dump_inst, result, {funcNamedParams});
         break;
     }}
     loader_platform_thread_unlock_mutex(dump_inst.outputMutex());
@@ -113,6 +117,9 @@ inline void dump_{funcName}(ApiDumpInstance& dump_inst, {funcReturn} result, {fu
     case ApiDumpFormat::Html:
         dump_html_{funcName}(dump_inst, result, {funcNamedParams});
         break;
+    case ApiDumpFormat::Json:
+        dump_json_{funcName}(dump_inst, result, {funcNamedParams});
+        break;
     }}
     loader_platform_thread_unlock_mutex(dump_inst.outputMutex());
 }}
@@ -139,6 +146,9 @@ inline void dump_{funcName}(ApiDumpInstance& dump_inst, {funcReturn} result, {fu
     case ApiDumpFormat::Html:
         dump_html_{funcName}(dump_inst, result, {funcNamedParams});
         break;
+    case ApiDumpFormat::Json:
+        dump_json_{funcName}(dump_inst, result, {funcNamedParams});
+        break;
     }}
     loader_platform_thread_unlock_mutex(dump_inst.outputMutex());
 }}
@@ -155,6 +165,9 @@ inline void dump_{funcName}(ApiDumpInstance& dump_inst, {funcTypedParams})
         break;
     case ApiDumpFormat::Html:
         dump_html_{funcName}(dump_inst, {funcNamedParams});
+        break;
+    case ApiDumpFormat::Json:
+        dump_json_{funcName}(dump_inst, {funcNamedParams});
         break;
     }}
     loader_platform_thread_unlock_mutex(dump_inst.outputMutex());
@@ -1076,6 +1089,406 @@ std::ostream& dump_html_{funcName}(ApiDumpInstance& dump_inst, {funcTypedParams}
 }}
 @end function
 """
+
+# This JSON Codegen is essentially copied from the html secion above.
+# { To help find the end    @@@@@@@@@@@@@@@  1
+
+JSON_CODEGEN = """
+/* Copyright (c) 2015-2017, 2019 Valve Corporation
+ * Copyright (c) 2015-2017, 2019 LunarG, Inc.
+ * Copyright (c) 2015-2017, 2019 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Author: Lenny Komow <lenny@lunarg.com>
+ * Author: Joey Bzdek <joey@lunarg.com>
+ * Author: Shannon McPherson <shannon@lunarg.com>
+ */
+
+/*
+ * This file is generated from the Khronos Vulkan XML API Registry.
+ */
+
+#pragma once
+
+#include "api_dump.h"
+
+@foreach struct where('{sctName}' != 'VkSurfaceFullScreenExclusiveWin32InfoEXT')
+std::ostream& dump_json_{sctName}(const {sctName}& object, const ApiDumpSettings& settings, int indents{sctConditionVars});
+@end struct
+@foreach struct where('{sctName}' == 'VkSurfaceFullScreenExclusiveWin32InfoEXT')
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+std::ostream& dump_json_VkSurfaceFullScreenExclusiveWin32InfoEXT(const VkSurfaceFullScreenExclusiveWin32InfoEXT& object, const ApiDumpSettings& settings, int indents);
+#endif // VK_USE_PLATFORM_WIN32_KHR
+@end struct
+@foreach union
+std::ostream& dump_json_{unName}(const {unName}& object, const ApiDumpSettings& settings, int indents);
+@end union
+
+//=========================== Type Implementations ==========================//
+
+@foreach type where('{etyName}' != 'void')
+inline std::ostream& dump_json_{etyName}({etyName} object, const ApiDumpSettings& settings, int indents)
+{{
+
+    @if('{etyName}' != 'uint8_t')
+    settings.stream() << '"' << object << '"';
+    @end if
+    @if('{etyName}' == 'uint8_t')
+    settings.stream() << '"' << (uint32_t) object << '"';
+    @end if
+    return settings.stream() << std::endl;
+}}
+@end type
+
+//========================= Basetype Implementations ========================//
+
+@foreach basetype
+inline std::ostream& dump_json_{baseName}({baseName} object, const ApiDumpSettings& settings, int indents)
+{{
+    return settings.stream() << '"' << object << '"' << std::endl;
+}}
+@end basetype
+
+//======================= System Type Implementations =======================//
+
+@foreach systype
+inline std::ostream& dump_json_{sysName}(const {sysType} object, const ApiDumpSettings& settings, int indents)
+{{
+    return settings.stream() << '"' << object << '"' << std::endl; 
+}}
+@end systype
+
+//========================== Handle Implementations =========================//
+
+@foreach handle
+inline std::ostream& dump_json_{hdlName}(const {hdlName} object, const ApiDumpSettings& settings, int indents)
+{{
+    if(settings.showAddress()) {{
+        settings.stream() << '"' <<  object << '"';
+
+        std::unordered_map<uint64_t, std::string>::const_iterator it = ApiDumpInstance::current().object_name_map.find((uint64_t) object);
+        if (it != ApiDumpInstance::current().object_name_map.end()) {{
+            settings.stream() << '"' << it->second;  // Need a closing '"' ??
+        }}
+    }} else {{
+        settings.stream() << '"' << "address" << '"';
+    }}
+    return settings.stream() << std::endl;
+}}
+@end handle
+
+//=========================== Enum Implementations ==========================//
+
+@foreach enum
+std::ostream& dump_json_{enumName}({enumName} object, const ApiDumpSettings& settings, int indents)
+{{
+    switch((int64_t) object)
+    {{
+    @foreach option
+    case {optValue}:
+        settings.stream() << "\\"{optName}\\"";
+        break;
+    @end option
+    default:
+        settings.stream() << '"' << "UNKNOWN" << '"';
+    }}
+    return settings.stream() << std::endl;
+}}
+@end enum
+        
+
+//========================= Bitmask Implementations =========================//
+
+@foreach bitmask
+std::ostream& dump_json_{bitName}({bitName} object, const ApiDumpSettings& settings, int indents)
+{{
+    bool is_first = true;
+    settings.stream() << '"' << object << ' ';
+    @foreach option
+    if(object & {optValue})
+        is_first = dump_json_bitmaskOption("{optName}", settings.stream(), is_first);
+    @end option
+    if(!is_first)
+        settings.stream() << ')';
+    return settings.stream() << '"' << std::endl;
+}}
+@end bitmask
+
+//######### 2 OK DOWN TO HERE
+
+//=========================== Flag Implementations ==========================//
+
+@foreach flag where('{flagEnum}' != 'None')
+inline std::ostream& dump_json_{flagName}({flagName} object, const ApiDumpSettings& settings, int indents)
+{{
+    return dump_json_{flagEnum}(({flagEnum}) object, settings, indents);
+}}
+@end flag
+@foreach flag where('{flagEnum}' == 'None')
+inline std::ostream& dump_json_{flagName}({flagName} object, const ApiDumpSettings& settings, int indents)
+{{
+    return settings.stream() << '"' << object << '"';
+}}
+@end flag
+
+//======================= Func Pointer Implementations ======================//
+
+@foreach funcpointer
+inline std::ostream& dump_json_{pfnName}({pfnName} object, const ApiDumpSettings& settings, int indents)
+{{
+    if(settings.showAddress())
+        settings.stream() << '"' << object << '"';
+    else
+        settings.stream() << '"' << "address" << '"';
+    return settings.stream();
+}}
+@end funcpointer
+
+//========================== Struct Implementations =========================//
+
+@foreach struct where('{sctName}' not in ['VkShaderModuleCreateInfo', 'VkSurfaceFullScreenExclusiveWin32InfoEXT'])
+std::ostream& dump_json_{sctName}(const {sctName}& object, const ApiDumpSettings& settings, int indents{sctConditionVars})
+{{
+
+    if(settings.showAddress())
+        settings.stream() << '"' << &object << "\\",";
+    else
+        settings.stream() << '"' << "address" << "\\",";
+    settings.stream() << std::endl;
+
+    @foreach member
+    @if('{memCondition}' != 'None')
+    if({memCondition})
+    @end if
+
+    @if({memPtrLevel} == 0)
+    dump_json_value<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    @end if
+    @if({memPtrLevel} == 1 and '{memLength}' == 'None')
+    dump_json_pointer<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    @end if
+    @if({memPtrLevel} == 1 and '{memLength}' != 'None' and not {memLengthIsMember})
+    dump_json_array<const {memBaseType}>(object.{memName}, {memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    @end if
+    @if({memPtrLevel} == 1 and '{memLength}' != 'None' and {memLengthIsMember})
+    dump_json_array<const {memBaseType}>(object.{memName}, object.{memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    @end if
+
+    @if('{memCondition}' != 'None')
+    else
+        dump_json_special("UNUSED", settings, "{memType}", "{memName}", indents + 1);
+    @end if
+    //settings.stream() << "," << std::endl;
+    @end member
+    return settings.stream();
+}}
+@end struct
+
+@foreach struct where('{sctName}' == 'VkShaderModuleCreateInfo')
+std::ostream& dump_json_{sctName}(const {sctName}& object, const ApiDumpSettings& settings, int indents{sctConditionVars})
+{{
+    if(settings.showAddress())
+        settings.stream() << '"' <<          &object << '"' << std::endl;
+    else
+        settings.stream() << '"' << "address" << '"' << std::endl;
+    settings.stream() << std::endl;
+
+    @foreach member
+    @if('{memCondition}' != 'None')
+    if({memCondition})
+    @end if
+
+    @if({memPtrLevel} == 0)
+    dump_json_value<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    @end if
+    @if({memPtrLevel} == 1 and '{memLength}' == 'None')
+    dump_json_pointer<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    @end if
+    @if({memPtrLevel} == 1 and '{memLength}' != 'None' and not {memLengthIsMember} and '{memName}' != 'pCode')
+    dump_json_array<const {memBaseType}>(object.{memName}, {memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    @end if
+    @if({memPtrLevel} == 1 and '{memLength}' != 'None' and {memLengthIsMember} and '{memName}' != 'pCode')
+    dump_json_array<const {memBaseType}>(object.{memName}, object.{memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    @end if
+    @if('{memName}' == 'pCode')
+    if(settings.showShader())
+        dump_json_array<const {memBaseType}>(object.{memName}, object.{memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    else
+        dump_json_special("SHADER DATA", settings, "{memType}", "{memName}", indents + 1);
+    @end if
+
+    @if('{memCondition}' != 'None')
+    else
+        dump_json_special("UNUSED", settings, "{memType}", "{memName}", indents + 1);
+    @end if
+    //settings.stream() << "              ,,4," << std::endl;
+    @end member
+    return settings.stream();
+}}
+@end struct
+
+//######### 3 OK DOWN TO HERE
+
+@foreach struct where('{sctName}' == 'VkSurfaceFullScreenExclusiveWin32InfoEXT')
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+std::ostream& dump_json_VkSurfaceFullScreenExclusiveWin32InfoEXT(const VkSurfaceFullScreenExclusiveWin32InfoEXT& object, const ApiDumpSettings& settings, int indents)
+{{
+    if(settings.showAddress())
+        settings.stream() << '"' << &object << '"';
+    else
+        settings.stream() << '"' << address << '"';
+    dump_json_value<const VkStructureType>(object.sType, settings, "VkStructureType", "sType", indents + 1, dump_json_VkStructureType);
+    dump_json_value<const void*>(object.pNext, settings, "const void*", "pNext", indents + 1, dump_json_void);
+    dump_json_value<const HMONITOR>(object.hmonitor, settings, "HMONITOR", "hmonitor", indents + 1, dump_json_HMONITOR);
+    return settings.stream();
+}}
+#endif // VK_USE_PLATFORM_WIN32_KHR
+@end struct
+
+//========================== Union Implementations ==========================//
+
+@foreach union
+std::ostream& dump_json_{unName}(const {unName}& object, const ApiDumpSettings& settings, int indents)
+{{
+    if(settings.showAddress())
+        settings.stream() << '"' << &object << " (Union) \\" : ";
+    else
+        settings.stream() << '"' << "address (Union) \\" : ";
+    settings.stream() << std::endl;
+
+    @foreach choice
+    @if({chcPtrLevel} == 0)
+    dump_json_value<const {chcBaseType}>(object.{chcName}, settings, "{chcType}", "{chcName}", indents + 1, dump_json_{chcTypeID});
+    @end if
+    @if({chcPtrLevel} == 1 and '{chcLength}' == 'None')
+    dump_json_pointer<const {chcBaseType}>(object.{chcName}, settings, "{chcType}", "{chcName}", indents + 1, dump_json_{chcTypeID});
+    @end if
+    @if({chcPtrLevel} == 1 and '{chcLength}' != 'None')
+    dump_json_array<const {chcBaseType}>(object.{chcName}, {chcLength}, settings, "{chcType}", "{chcChildType}", "{chcName}", indents + 1, dump_json_{chcTypeID});
+    @end if
+    settings.stream() << "              ,,5," << std::endl;
+    @end choice
+    return settings.stream();
+}}
+@end union
+
+//========================= Function Implementations ========================//
+@foreach function where('{funcReturn}' != 'void' and not '{funcName}' in ['vkGetDeviceProcAddr', 'vkGetInstanceProcAddr', 'xyzzyxyzzy'])
+std::ostream& dump_json_{funcName}(ApiDumpInstance& dump_inst, {funcReturn} result, {funcTypedParams})
+{{
+    const ApiDumpSettings& settings(dump_inst.settings());
+    uint64_t current_frame = dump_inst.frameCount();
+
+    // Possibly start new frame
+    if (current_frame == next_frame) {{
+        if (next_frame > 0) {{
+            settings.stream() << "] ===== END FRAME" << std::endl;
+        }}
+        settings.stream() << "\\\"Frame " << current_frame << "\\\" :" << std::endl;
+        settings.stream() << "[      === START FRAME" << std::endl;
+        next_frame++;
+    }}
+
+    // Display thread info
+    settings.stream() << "\\\"Thread " << dump_inst.threadID() << "\\\" :" << std::endl;
+    settings.stream() << "{{   ==== START THREAD " << std::endl;
+
+    // Display apicall(params)
+    dump_json_nametype(settings.stream(), false, "{funcName}({funcNamedParams})", "{funcReturn}");
+    settings.stream() << "{{     ==== START API FUNC/PARAMS " << std::endl;
+
+    // Display return value
+    settings.stream() << "\\\"rval\\\": ";
+    dump_json_{funcReturn}(result, settings, 0);
+    
+    // Display parameter values
+    if(settings.showParams())
+    {{
+        @foreach parameter
+        @if({prmPtrLevel} == 0)
+        dump_json_value<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        @end if
+        @if({prmPtrLevel} == 1 and '{prmLength}' == 'None')
+        dump_json_pointer<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        @end if
+        @if({prmPtrLevel} == 1 and '{prmLength}' != 'None')
+        dump_json_array<const {prmBaseType}>({prmName}, {prmLength}, settings, "{prmType}", "{prmChildType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        @end if
+        //settings.stream() << "              ,,6," << std::endl;
+        //settings.stream() << std::endl;
+        @end parameter
+    }}
+    settings.stream() << "}}    ===== END API FUNC/PARAMS " << std::endl;
+    settings.stream() << "}}   ==== END THREAD " << std::endl;
+    //settings.shouldFlush() ? settings.stream() << std::endl : settings.stream() << "\\n";   WHAT IS shouldFlush()???
+    return settings.stream();
+}}
+@end function
+
+@foreach function where('{funcReturn}' == 'void')
+std::ostream& dump_json_{funcName}(ApiDumpInstance& dump_inst, {funcTypedParams})
+{{
+    const ApiDumpSettings& settings(dump_inst.settings());
+    uint64_t current_frame = dump_inst.frameCount();
+
+    // Possibly start new frame
+    if (current_frame == next_frame) {{
+        if (next_frame > 0) {{
+            settings.stream() << "] ===== END FRAME" << std::endl;
+        }}
+        settings.stream() << "\\\"Frame " << current_frame << "\\\" :" << std::endl;
+        settings.stream() << "[      === START FRAME" << std::endl;
+        next_frame++;
+    }}
+
+    // Display thread info
+    settings.stream() << "\\\"Thread " << dump_inst.threadID() << "\\\" :" << std::endl;
+    settings.stream() << "{{   ==== START THREAD " << std::endl;
+
+    // Display apicall(params)
+    dump_json_nametype(settings.stream(), false, "{funcName}({funcNamedParams})", "void");
+    settings.stream() << "{{     ==== START API FUNC/PARAMS " << std::endl;
+
+    // Display return value
+    settings.stream() << "\\\"rval\\\": ";
+    settings.stream() << "\\\"void\\\"," << std::endl;
+    
+    // Display parameter values
+    if(settings.showParams())
+    {{
+        @foreach parameter
+        @if({prmPtrLevel} == 0)
+        dump_json_value<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        @end if
+        @if({prmPtrLevel} == 1 and '{prmLength}' == 'None')
+        dump_json_pointer<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        @end if
+        @if({prmPtrLevel} == 1 and '{prmLength}' != 'None')
+        dump_json_array<const {prmBaseType}>({prmName}, {prmLength}, settings, "{prmType}", "{prmChildType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        @end if
+        //settings.stream() << "              ,,6," << std::endl;
+        //settings.stream() << std::endl;
+        @end parameter
+    }}
+    settings.stream() << "}}    ===== END API FUNC/PARAMS " << std::endl;
+    settings.stream() << "}}   ==== END THREAD " << std::endl;
+    //settings.shouldFlush() ? settings.stream() << std::endl : settings.stream() << "\\n";   WHAT IS shouldFlush()???
+    return settings.stream();
+}}
+@end function
+"""
+# } The end   ######## LAST
 
 POINTER_TYPES = ['void', 'xcb_connection_t', 'Display', 'SECURITY_ATTRIBUTES', 'ANativeWindow', 'AHardwareBuffer']
 

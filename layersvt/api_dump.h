@@ -57,6 +57,7 @@
 enum class ApiDumpFormat {
     Text,
     Html,
+    Json,
 };
 
 class ApiDumpSettings {
@@ -102,6 +103,8 @@ class ApiDumpSettings {
         if (!env_value.empty()) {
             if (ToLowerString(env_value) == "html") {
                 output_format = ApiDumpFormat::Html;
+            } else if (ToLowerString(env_value) == "json") {
+                output_format = ApiDumpFormat::Json;
             } else {
                 output_format = ApiDumpFormat::Text;
             }
@@ -232,6 +235,9 @@ class ApiDumpSettings {
                         "</div>"
                         "<div id='wrapper'>";
             // clang-format on
+        } else if (output_format == ApiDumpFormat::Json) {
+            stream() <<
+                "[" << std::endl;
         }
     }
 
@@ -239,6 +245,9 @@ class ApiDumpSettings {
         if (output_format == ApiDumpFormat::Html) {
             // Close off html
             stream() << "</div></body></html>";
+        } else if (output_format == ApiDumpFormat::Json) {
+            // Close off json
+            stream() << "]" << std::endl;
         }
         if (!use_cout) output_stream.close();
     }
@@ -363,6 +372,8 @@ class ApiDumpSettings {
             return ApiDumpFormat::Text;
         else if (strcmp(string_option, "Html") == 0)
             return ApiDumpFormat::Html;
+        else if (strcmp(string_option, "Json") == 0)
+            return ApiDumpFormat::Json;
         else
             return default_value;
     }
@@ -902,5 +913,152 @@ inline std::ostream &dump_html_HMONITOR(HMONITOR object, const ApiDumpSettings &
     settings.stream() << "<div class='val'>";
     settings.stream() << object;
     return settings.stream() << "</div>";
+}
+#endif // VK_USE_PLATFORM_WIN32_KHR
+
+//==================================== Json Backend Helpers ======================================//
+
+inline std::ostream &dump_json_nametype(std::ostream &stream, bool showType, const char *name, const char *type) {
+    stream << "\"" << name << "\" :" << std::endl;
+    
+    if (showType) {
+        stream << '"' << type << "\" : ";
+    }
+    return stream;
+}
+
+template <typename T, typename... Args>
+inline void dump_json_array(const T *array, size_t len, const ApiDumpSettings &settings, const char *type_string,
+                            const char *child_type, const char *name, int indents,
+                            std::ostream &(*dump)(const T, const ApiDumpSettings &, int, Args... args), Args... args) {
+    if (array == NULL) {
+        dump_json_nametype(settings.stream(), settings.showType(), name, type_string);
+        settings.stream() << "\"NULL\"" << std::endl;
+        return;
+    }
+    dump_json_nametype(settings.stream(), settings.showType(), name, type_string);
+    if (settings.showAddress())
+        settings.stream() << '"' << (void *)array << '"' << "\n";
+    else
+        settings.stream() << "\"address\"\n";
+    for (size_t i = 0; i < len && array != NULL; ++i) {
+        std::stringstream stream;
+        stream << "[" << i << "]";
+        std::string indexName = stream.str();
+        dump_json_value(array[i], settings, child_type, indexName.c_str(), indents + 1, dump, args...);
+        //settings.stream() << std::endl;
+    }
+    //settings.stream() << std::endl;
+}
+
+template <typename T, typename... Args>
+inline void dump_json_array(const T *array, size_t len, const ApiDumpSettings &settings, const char *type_string,
+                            const char *child_type, const char *name, int indents,
+                            std::ostream &(*dump)(const T &, const ApiDumpSettings &, int, Args... args), Args... args) {
+    if (array == NULL) {
+        dump_json_nametype(settings.stream(), settings.showType(), name, type_string);
+        settings.stream() << "\"NULL\"" << std::endl;
+        return;
+    }
+    dump_json_nametype(settings.stream(), settings.showType(), name, type_string);
+    if (settings.showAddress())
+        settings.stream() << '"' << (void *)array << '"' << "\n";
+    else
+        settings.stream() << "\"address\"\n";
+    for (size_t i = 0; i < len && array != NULL; ++i) {
+        std::stringstream stream;
+        stream << "[" << i << "]";
+        std::string indexName = stream.str();
+        dump_json_value(array[i], settings, child_type, indexName.c_str(), indents + 1, dump, args...);
+        //settings.stream() << std::endl;
+    }
+    //settings.stream() << std::endl;
+}
+
+template <typename T, typename... Args>
+inline void dump_json_pointer(const T *pointer, const ApiDumpSettings &settings, const char *type_string, const char *name,
+                              int indents, std::ostream &(*dump)(const T, const ApiDumpSettings &, int, Args... args),
+                              Args... args) {
+    if (pointer == NULL) {
+        dump_json_nametype(settings.stream(), settings.showType(), name, type_string);
+        settings.stream() << "\"NULL\",";
+    } else {
+        dump_json_value(*pointer, settings, type_string, name, indents, dump, args...);
+    }
+    //settings.stream() << "       ,,1,";
+}
+
+template <typename T, typename... Args>
+inline void dump_json_pointer(const T *pointer, const ApiDumpSettings &settings, const char *type_string, const char *name,
+                              int indents, std::ostream &(*dump)(const T &, const ApiDumpSettings &, int, Args... args),
+                              Args... args) {
+    if (pointer == NULL) {
+        dump_json_nametype(settings.stream(), settings.showType(), name, type_string);
+        settings.stream() << "\"NULL\",";
+    } else {
+        dump_json_value(*pointer, settings, type_string, name, indents, dump, args...);
+    }
+    //settings.stream() << "       ,,2,";
+}
+
+template <typename T, typename... Args>
+inline void dump_json_value(const T object, const ApiDumpSettings &settings, const char *type_string, const char *name, int indents,
+                            std::ostream &(*dump)(const T, const ApiDumpSettings &, int, Args... args), Args... args) {
+    dump_json_nametype(settings.stream(), settings.showType(), name, type_string);
+    dump(object, settings, indents, args...);
+}
+
+template <typename T, typename... Args>
+inline void dump_json_value(const T &object, const ApiDumpSettings &settings, const char *type_string, const char *name,
+                            int indents, std::ostream &(*dump)(const T &, const ApiDumpSettings &, int, Args... args),
+                            Args... args) {
+    //settings.stream() << std::endl;
+    dump_json_nametype(settings.stream(), settings.showType(), name, type_string);
+    dump(object, settings, indents, args...);
+    //settings.stream() << ",,1," << std::endl;
+}
+
+inline void dump_json_special(const char *text, const ApiDumpSettings &settings, const char *type_string, const char *name,
+                              int indents) {
+    dump_html_nametype(settings.stream(), settings.showType(), name, type_string);
+    settings.stream() << '"' << text << '"';
+}
+
+inline bool dump_json_bitmaskOption(const std::string &option, std::ostream &stream, bool isFirst) {
+    if (isFirst)
+        stream << " (";
+    else
+        stream << " | ";
+    stream << option;
+    return false;
+}
+
+inline std::ostream &dump_json_cstring(const char *object, const ApiDumpSettings &settings, int indents) {
+    if (object == NULL)
+        settings.stream() << "\"\"";
+    else
+        settings.stream() << '"' << object << '"';
+    return settings.stream();
+}
+
+inline std::ostream &dump_json_void(const void *object, const ApiDumpSettings &settings, int indents) {
+    if (object == NULL)
+        settings.stream() << "\"NULL\""; 
+    else if (settings.showAddress())
+        settings.stream() << '"' << object << '"';
+    else
+        settings.stream() << "\"address\"";
+    return settings.stream();
+}
+
+inline std::ostream &dump_json_int(int object, const ApiDumpSettings &settings, int indents) {
+    settings.stream() << '"' << object << '"';
+    return settings.stream();
+}
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+inline std::ostream &dump_json_HMONITOR(HMONITOR object, const ApiDumpSettings &settings, int indents) {
+    settings.stream() << '"' << object << '"';
+    return settings.stream();
 }
 #endif // VK_USE_PLATFORM_WIN32_KHR

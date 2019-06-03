@@ -1090,12 +1090,11 @@ std::ostream& dump_html_{funcName}(ApiDumpInstance& dump_inst, {funcTypedParams}
 @end function
 """
 
-# This JSON Codegen is essentially copied from the html secion above.
-# { To help find the end    @@@@@@@@@@@@@@@  1
+# This JSON Codegen is essentially copied from the HTML section above.
 
 JSON_CODEGEN = """
-/* Copyright (c) 2015-2017, 2019 Valve Corporation
- * Copyright (c) 2015-2017, 2019 LunarG, Inc.
+/* Copyright (c) 2015-2019, 2019 Valve Corporation
+ * Copyright (c) 2015-2019, 2019 LunarG, Inc.
  * Copyright (c) 2015-2017, 2019 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -1113,6 +1112,7 @@ JSON_CODEGEN = """
  * Author: Lenny Komow <lenny@lunarg.com>
  * Author: Joey Bzdek <joey@lunarg.com>
  * Author: Shannon McPherson <shannon@lunarg.com>
+ * Author: David Pinedo <david@lunarg.com>
  */
 
 /*
@@ -1142,12 +1142,11 @@ inline std::ostream& dump_json_{etyName}({etyName} object, const ApiDumpSettings
 {{
 
     @if('{etyName}' != 'uint8_t')
-    settings.stream() << '"' << object << '"';
+    settings.stream() << '"' << object << "\\"";
     @end if
     @if('{etyName}' == 'uint8_t')
-    settings.stream() << '"' << (uint32_t) object << '"';
+    settings.stream() << '"' << (uint32_t) object << "\\"";
     @end if
-    return settings.stream() << std::endl;
 }}
 @end type
 
@@ -1156,7 +1155,7 @@ inline std::ostream& dump_json_{etyName}({etyName} object, const ApiDumpSettings
 @foreach basetype
 inline std::ostream& dump_json_{baseName}({baseName} object, const ApiDumpSettings& settings, int indents)
 {{
-    return settings.stream() << '"' << object << '"' << std::endl;
+    return settings.stream() << '"' << object << "\\"";
 }}
 @end basetype
 
@@ -1165,7 +1164,7 @@ inline std::ostream& dump_json_{baseName}({baseName} object, const ApiDumpSettin
 @foreach systype
 inline std::ostream& dump_json_{sysName}(const {sysType} object, const ApiDumpSettings& settings, int indents)
 {{
-    return settings.stream() << '"' << object << '"' << std::endl; 
+    return settings.stream() << '"' << object << "\\"";
 }}
 @end systype
 
@@ -1176,15 +1175,10 @@ inline std::ostream& dump_json_{hdlName}(const {hdlName} object, const ApiDumpSe
 {{
     if(settings.showAddress()) {{
         settings.stream() << '"' <<  object << '"';
-
-        std::unordered_map<uint64_t, std::string>::const_iterator it = ApiDumpInstance::current().object_name_map.find((uint64_t) object);
-        if (it != ApiDumpInstance::current().object_name_map.end()) {{
-            settings.stream() << '"' << it->second;  // Need a closing '"' ??
-        }}
     }} else {{
-        settings.stream() << '"' << "address" << '"';
+        settings.stream() << '"' << "address" << "\\"";
     }}
-    return settings.stream() << std::endl;
+    return settings.stream();
 }}
 @end handle
 
@@ -1201,12 +1195,11 @@ std::ostream& dump_json_{enumName}({enumName} object, const ApiDumpSettings& set
         break;
     @end option
     default:
-        settings.stream() << '"' << "UNKNOWN" << '"';
+        settings.stream() << '"' << "UNKNOWN" << "\\"";
     }}
-    return settings.stream() << std::endl;
+    return settings.stream();
 }}
 @end enum
-        
 
 //========================= Bitmask Implementations =========================//
 
@@ -1221,11 +1214,9 @@ std::ostream& dump_json_{bitName}({bitName} object, const ApiDumpSettings& setti
     @end option
     if(!is_first)
         settings.stream() << ')';
-    return settings.stream() << '"' << std::endl;
+    return settings.stream() << "\\"";
 }}
 @end bitmask
-
-//######### 2 OK DOWN TO HERE
 
 //=========================== Flag Implementations ==========================//
 
@@ -1238,7 +1229,7 @@ inline std::ostream& dump_json_{flagName}({flagName} object, const ApiDumpSettin
 @foreach flag where('{flagEnum}' == 'None')
 inline std::ostream& dump_json_{flagName}({flagName} object, const ApiDumpSettings& settings, int indents)
 {{
-    return settings.stream() << '"' << object << '"';
+    return settings.stream() << '"' << object << "\\"";
 }}
 @end flag
 
@@ -1248,9 +1239,9 @@ inline std::ostream& dump_json_{flagName}({flagName} object, const ApiDumpSettin
 inline std::ostream& dump_json_{pfnName}({pfnName} object, const ApiDumpSettings& settings, int indents)
 {{
     if(settings.showAddress())
-        settings.stream() << '"' << object << '"';
+        settings.stream() << '"' << object << "\\"";
     else
-        settings.stream() << '"' << "address" << '"';
+        settings.stream() << '"' << "address" << "\\"";
     return settings.stream();
 }}
 @end funcpointer
@@ -1260,37 +1251,43 @@ inline std::ostream& dump_json_{pfnName}({pfnName} object, const ApiDumpSettings
 @foreach struct where('{sctName}' not in ['VkShaderModuleCreateInfo', 'VkSurfaceFullScreenExclusiveWin32InfoEXT'])
 std::ostream& dump_json_{sctName}(const {sctName}& object, const ApiDumpSettings& settings, int indents{sctConditionVars})
 {{
-
+    settings.stream() << "\\n" << settings.indentation(indents + 0) << "{{\\n";
+    settings.stream() << settings.indentation(indents + 1) << "\\"{sctName}*\\" : ";
     if(settings.showAddress())
-        settings.stream() << '"' << &object << "\\",";
+        settings.stream() << '"' << &object << "\\"";
     else
-        settings.stream() << '"' << "address" << "\\",";
-    settings.stream() << std::endl;
+        settings.stream() << '"' << "address" << "\\"";
+    settings.stream() << ",\\n";
+    settings.stream() << settings.indentation(indents + 1) << "\\"value\\" :\\n";
+    settings.stream() << settings.indentation(indents + 1) << "{{\\n";
 
+    bool needMemberComma = false;
     @foreach member
+    if (needMemberComma) settings.stream() << ",\\n";
     @if('{memCondition}' != 'None')
     if({memCondition})
     @end if
 
     @if({memPtrLevel} == 0)
-    dump_json_value<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    dump_json_value<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 2, dump_json_{memTypeID}{memInheritedConditions});
     @end if
     @if({memPtrLevel} == 1 and '{memLength}' == 'None')
-    dump_json_pointer<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    dump_json_pointer<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 2, dump_json_{memTypeID}{memInheritedConditions});
     @end if
     @if({memPtrLevel} == 1 and '{memLength}' != 'None' and not {memLengthIsMember})
-    dump_json_array<const {memBaseType}>(object.{memName}, {memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    dump_json_array<const {memBaseType}>(object.{memName}, {memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 2, dump_json_{memTypeID}{memInheritedConditions});
     @end if
     @if({memPtrLevel} == 1 and '{memLength}' != 'None' and {memLengthIsMember})
-    dump_json_array<const {memBaseType}>(object.{memName}, object.{memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    dump_json_array<const {memBaseType}>(object.{memName}, object.{memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 2, dump_json_{memTypeID}{memInheritedConditions});
     @end if
 
     @if('{memCondition}' != 'None')
     else
-        dump_json_special("UNUSED", settings, "{memType}", "{memName}", indents + 1);
+        dump_json_special("UNUSED", settings, "{memType}", "{memName}", indents + 2);
     @end if
-    //settings.stream() << "," << std::endl;
+    needMemberComma = true;
     @end member
+    settings.stream() << "\\n" << settings.indentation(indents + 1) << "}}\\n" << settings.indentation(indents + 0) << "}}";
     return settings.stream();
 }}
 @end struct
@@ -1298,52 +1295,60 @@ std::ostream& dump_json_{sctName}(const {sctName}& object, const ApiDumpSettings
 @foreach struct where('{sctName}' == 'VkShaderModuleCreateInfo')
 std::ostream& dump_json_{sctName}(const {sctName}& object, const ApiDumpSettings& settings, int indents{sctConditionVars})
 {{
+    settings.stream() << "\\n" << settings.indentation(indents + 0) << "{{\\n";
+    settings.stream() << settings.indentation(indents + 1) << "\\"{sctName}*\\" : ";
     if(settings.showAddress())
-        settings.stream() << '"' <<          &object << '"' << std::endl;
+        settings.stream() << '"' << &object << "\\"";
     else
-        settings.stream() << '"' << "address" << '"' << std::endl;
-    settings.stream() << std::endl;
+        settings.stream() << '"' << "address" << "\\"";
+    settings.stream() << ",\\n";
+    settings.stream() << settings.indentation(indents + 1) << "\\"value\\" :\\n";
+    settings.stream() << settings.indentation(indents + 1) << "{{\\n";
 
+    bool needMemberComma = false;
     @foreach member
+    if (needMemberComma) settings.stream() << ",\\n";
     @if('{memCondition}' != 'None')
     if({memCondition})
     @end if
 
     @if({memPtrLevel} == 0)
-    dump_json_value<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    dump_json_value<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 2, dump_json_{memTypeID}{memInheritedConditions});
     @end if
     @if({memPtrLevel} == 1 and '{memLength}' == 'None')
-    dump_json_pointer<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    dump_json_pointer<const {memBaseType}>(object.{memName}, settings, "{memType}", "{memName}", indents + 2, dump_json_{memTypeID}{memInheritedConditions});
     @end if
     @if({memPtrLevel} == 1 and '{memLength}' != 'None' and not {memLengthIsMember} and '{memName}' != 'pCode')
-    dump_json_array<const {memBaseType}>(object.{memName}, {memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    dump_json_array<const {memBaseType}>(object.{memName}, {memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 2, dump_json_{memTypeID}{memInheritedConditions});
     @end if
     @if({memPtrLevel} == 1 and '{memLength}' != 'None' and {memLengthIsMember} and '{memName}' != 'pCode')
-    dump_json_array<const {memBaseType}>(object.{memName}, object.{memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+    dump_json_array<const {memBaseType}>(object.{memName}, object.{memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 2, dump_json_{memTypeID}{memInheritedConditions});
     @end if
+
     @if('{memName}' == 'pCode')
     if(settings.showShader())
-        dump_json_array<const {memBaseType}>(object.{memName}, object.{memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 1, dump_json_{memTypeID}{memInheritedConditions});
+        dump_json_array<const {memBaseType}>(object.{memName}, object.{memLength}, settings, "{memType}", "{memChildType}", "{memName}", indents + 2, dump_json_{memTypeID}{memInheritedConditions});
     else
-        dump_json_special("SHADER DATA", settings, "{memType}", "{memName}", indents + 1);
+        dump_json_special("SHADER DATA", settings, "{memType}", "{memName}", indents + 2);
     @end if
 
     @if('{memCondition}' != 'None')
     else
-        dump_json_special("UNUSED", settings, "{memType}", "{memName}", indents + 1);
+        dump_json_special("UNUSED", settings, "{memType}", "{memName}", indents + 2);
     @end if
-    //settings.stream() << "              ,,4," << std::endl;
+    needMemberComma = true;
     @end member
+    settings.stream() << "\\n" << settings.indentation(indents + 1) << "}}\\n" << settings.indentation(indents + 0) << "}}";
     return settings.stream();
 }}
 @end struct
-
-//######### 3 OK DOWN TO HERE
 
 @foreach struct where('{sctName}' == 'VkSurfaceFullScreenExclusiveWin32InfoEXT')
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
 std::ostream& dump_json_VkSurfaceFullScreenExclusiveWin32InfoEXT(const VkSurfaceFullScreenExclusiveWin32InfoEXT& object, const ApiDumpSettings& settings, int indents)
 {{
+    // NOT YET IMPLEMENTED
+#if 0
     if(settings.showAddress())
         settings.stream() << '"' << &object << '"';
     else
@@ -1351,6 +1356,7 @@ std::ostream& dump_json_VkSurfaceFullScreenExclusiveWin32InfoEXT(const VkSurface
     dump_json_value<const VkStructureType>(object.sType, settings, "VkStructureType", "sType", indents + 1, dump_json_VkStructureType);
     dump_json_value<const void*>(object.pNext, settings, "const void*", "pNext", indents + 1, dump_json_void);
     dump_json_value<const HMONITOR>(object.hmonitor, settings, "HMONITOR", "hmonitor", indents + 1, dump_json_HMONITOR);
+#endif
     return settings.stream();
 }}
 #endif // VK_USE_PLATFORM_WIN32_KHR
@@ -1361,29 +1367,43 @@ std::ostream& dump_json_VkSurfaceFullScreenExclusiveWin32InfoEXT(const VkSurface
 @foreach union
 std::ostream& dump_json_{unName}(const {unName}& object, const ApiDumpSettings& settings, int indents)
 {{
-    if(settings.showAddress())
-        settings.stream() << '"' << &object << " (Union) \\" : ";
-    else
-        settings.stream() << '"' << "address (Union) \\" : ";
-    settings.stream() << std::endl;
+    settings.stream() << "\\n";
+    settings.stream() << settings.indentation(indents + 0) << "{{\\n";
 
+    settings.stream() << settings.indentation(indents + 1) << "\\"{unName}*\\" : ";
+    if(settings.showAddress())
+        settings.stream() << '"' << &object << " (Union)\\" :";
+    else
+        settings.stream() << '"' << "address" << " (Union)\\" : ";
+    settings.stream() << ",\\n";
+    settings.stream() << settings.indentation(indents + 1) << "\\"value\\" :\\n";
+    settings.stream() << settings.indentation(indents + 1) << "{{\\n";
+
+    bool needChoiceComma = false;
     @foreach choice
+    if (needChoiceComma) settings.stream() << ",\\n";
+
     @if({chcPtrLevel} == 0)
-    dump_json_value<const {chcBaseType}>(object.{chcName}, settings, "{chcType}", "{chcName}", indents + 1, dump_json_{chcTypeID});
+    dump_json_value<const {chcBaseType}>(object.{chcName}, settings, "{chcType}", "{chcName}", indents + 2, dump_json_{chcTypeID});
     @end if
     @if({chcPtrLevel} == 1 and '{chcLength}' == 'None')
-    dump_json_pointer<const {chcBaseType}>(object.{chcName}, settings, "{chcType}", "{chcName}", indents + 1, dump_json_{chcTypeID});
+    dump_json_pointer<const {chcBaseType}>(object.{chcName}, settings, "{chcType}", "{chcName}", indents + 2, dump_json_{chcTypeID});
     @end if
     @if({chcPtrLevel} == 1 and '{chcLength}' != 'None')
-    dump_json_array<const {chcBaseType}>(object.{chcName}, {chcLength}, settings, "{chcType}", "{chcChildType}", "{chcName}", indents + 1, dump_json_{chcTypeID});
+    dump_json_array<const {chcBaseType}>(object.{chcName}, {chcLength}, settings, "{chcType}", "{chcChildType}", "{chcName}", indents + 2, dump_json_{chcTypeID});
     @end if
-    settings.stream() << "              ,,5," << std::endl;
+    needChoiceComma = true;
     @end choice
+
+    settings.stream() << "\\n" << settings.indentation(indents + 1) << "}}\\n" << settings.indentation(indents + 0) << "}}";
     return settings.stream();
 }}
 @end union
 
 //========================= Function Implementations ========================//
+
+static bool needFuncComma = false;
+
 @foreach function where('{funcReturn}' != 'void' and not '{funcName}' in ['vkGetDeviceProcAddr', 'vkGetInstanceProcAddr', 'xyzzyxyzzy'])
 std::ostream& dump_json_{funcName}(ApiDumpInstance& dump_inst, {funcReturn} result, {funcTypedParams})
 {{
@@ -1393,45 +1413,54 @@ std::ostream& dump_json_{funcName}(ApiDumpInstance& dump_inst, {funcReturn} resu
     // Possibly start new frame
     if (current_frame == next_frame) {{
         if (next_frame > 0) {{
-            settings.stream() << "] ===== END FRAME" << std::endl;
+            settings.stream() << "\\n],\\n";
         }}
-        settings.stream() << "\\\"Frame " << current_frame << "\\\" :" << std::endl;
-        settings.stream() << "[      === START FRAME" << std::endl;
+        settings.stream() << "\\\"Frame " << current_frame << "\\\" :\\n";
+        settings.stream() << "[\\n";
         next_frame++;
+        needFuncComma = false;
     }}
-
     // Display thread info
-    settings.stream() << "\\\"Thread " << dump_inst.threadID() << "\\\" :" << std::endl;
-    settings.stream() << "{{   ==== START THREAD " << std::endl;
+    if (needFuncComma) settings.stream() << ",\\n";
+    settings.stream() << settings.indentation(1) << "\\\"Thread " << dump_inst.threadID() << "\\\" :\\n";
+    settings.stream() << settings.indentation(1) << "{{\\n";
 
     // Display apicall(params)
-    dump_json_nametype(settings.stream(), false, "{funcName}({funcNamedParams})", "{funcReturn}");
-    settings.stream() << "{{     ==== START API FUNC/PARAMS " << std::endl;
+    dump_json_nametype(settings, false, "{funcName}({funcNamedParams})", "{funcReturn}",2);
+    settings.stream() << "\\n" << settings.indentation(2) << "{{\\n";
 
     // Display return value
-    settings.stream() << "\\\"rval\\\": ";
+    settings.stream() << settings.indentation(3) << "\\\"rval\\\" : ";
     dump_json_{funcReturn}(result, settings, 0);
-    
+    if(settings.showParams())
+        settings.stream() << ",";
+    settings.stream() << "\\n";
+
     // Display parameter values
     if(settings.showParams())
     {{
+        settings.stream() << settings.indentation(3) << "\\\"args\\\" :\\n";
+        settings.stream() << settings.indentation(3) << "{{\\n";
+        bool needParameterComma = false;
         @foreach parameter
+        if (needParameterComma) settings.stream() << ",\\n";
         @if({prmPtrLevel} == 0)
-        dump_json_value<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        dump_json_value<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 4, dump_json_{prmTypeID}{prmInheritedConditions});
         @end if
         @if({prmPtrLevel} == 1 and '{prmLength}' == 'None')
-        dump_json_pointer<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        dump_json_pointer<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 4, dump_json_{prmTypeID}{prmInheritedConditions});
         @end if
         @if({prmPtrLevel} == 1 and '{prmLength}' != 'None')
-        dump_json_array<const {prmBaseType}>({prmName}, {prmLength}, settings, "{prmType}", "{prmChildType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        dump_json_array<const {prmBaseType}>({prmName}, {prmLength}, settings, "{prmType}", "{prmChildType}", "{prmName}", 4, dump_json_{prmTypeID}{prmInheritedConditions});
         @end if
-        //settings.stream() << "              ,,6," << std::endl;
-        //settings.stream() << std::endl;
+        needParameterComma = true;
         @end parameter
+        settings.stream() << "\\n" << settings.indentation(3) << "}}\\n";
     }}
-    settings.stream() << "}}    ===== END API FUNC/PARAMS " << std::endl;
-    settings.stream() << "}}   ==== END THREAD " << std::endl;
-    //settings.shouldFlush() ? settings.stream() << std::endl : settings.stream() << "\\n";   WHAT IS shouldFlush()???
+    settings.stream() << settings.indentation(2) << "}}\\n";
+    settings.stream() << settings.indentation(1) << "}}";
+    needFuncComma = true;
+    if (settings.shouldFlush()) settings.stream().flush();
     return settings.stream();
 }}
 @end function
@@ -1445,50 +1474,60 @@ std::ostream& dump_json_{funcName}(ApiDumpInstance& dump_inst, {funcTypedParams}
     // Possibly start new frame
     if (current_frame == next_frame) {{
         if (next_frame > 0) {{
-            settings.stream() << "] ===== END FRAME" << std::endl;
+            settings.stream() << "\\n],\\n";
         }}
-        settings.stream() << "\\\"Frame " << current_frame << "\\\" :" << std::endl;
-        settings.stream() << "[      === START FRAME" << std::endl;
+        settings.stream() << "\\\"Frame " << current_frame << "\\\" :\\n";
+        settings.stream() << "[\\n";
         next_frame++;
+        needFuncComma = false;
     }}
 
     // Display thread info
-    settings.stream() << "\\\"Thread " << dump_inst.threadID() << "\\\" :" << std::endl;
-    settings.stream() << "{{   ==== START THREAD " << std::endl;
+    if (needFuncComma) settings.stream() << ",\\n";
+    settings.stream() << settings.indentation(1) << "\\\"Thread " << dump_inst.threadID() << "\\\" :\\n";
+    settings.stream() << settings.indentation(1) << "{{\\n";
 
     // Display apicall(params)
-    dump_json_nametype(settings.stream(), false, "{funcName}({funcNamedParams})", "void");
-    settings.stream() << "{{     ==== START API FUNC/PARAMS " << std::endl;
+    dump_json_nametype(settings, false, "{funcName}({funcNamedParams})", "void", 2);
+    settings.stream() << "\\n" << settings.indentation(2) << "{{\\n";
 
     // Display return value
-    settings.stream() << "\\\"rval\\\": ";
-    settings.stream() << "\\\"void\\\"," << std::endl;
-    
+    settings.stream() << settings.indentation(3) << "\\\"rval\\\": ";
+    settings.stream() << "\\\"void\\\"";
+    if(settings.showParams())
+        settings.stream() << ",";
+    settings.stream() << "\\n";
+
     // Display parameter values
     if(settings.showParams())
     {{
+        settings.stream() << settings.indentation(3) << "\\\"args\\\" :\\n";
+        settings.stream() << settings.indentation(3) << "{{\\n";
+        bool needParameterComma = false;
         @foreach parameter
+        if (needParameterComma) settings.stream() << ",\\n";
         @if({prmPtrLevel} == 0)
-        dump_json_value<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        dump_json_value<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 4, dump_json_{prmTypeID}{prmInheritedConditions});
         @end if
         @if({prmPtrLevel} == 1 and '{prmLength}' == 'None')
-        dump_json_pointer<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        dump_json_pointer<const {prmBaseType}>({prmName}, settings, "{prmType}", "{prmName}", 4, dump_json_{prmTypeID}{prmInheritedConditions});
         @end if
         @if({prmPtrLevel} == 1 and '{prmLength}' != 'None')
-        dump_json_array<const {prmBaseType}>({prmName}, {prmLength}, settings, "{prmType}", "{prmChildType}", "{prmName}", 1, dump_json_{prmTypeID}{prmInheritedConditions});
+        dump_json_array<const {prmBaseType}>({prmName}, {prmLength}, settings, "{prmType}", "{prmChildType}", "{prmName}", 4, dump_json_{prmTypeID}{prmInheritedConditions});
         @end if
-        //settings.stream() << "              ,,6," << std::endl;
-        //settings.stream() << std::endl;
+        needParameterComma = true;
         @end parameter
+        settings.stream() << "\\n" << settings.indentation(3) << "}}\\n";
     }}
-    settings.stream() << "}}    ===== END API FUNC/PARAMS " << std::endl;
-    settings.stream() << "}}   ==== END THREAD " << std::endl;
-    //settings.shouldFlush() ? settings.stream() << std::endl : settings.stream() << "\\n";   WHAT IS shouldFlush()???
+    settings.stream() << settings.indentation(2) << "}}\\n";
+    settings.stream() << settings.indentation(1) << "}}";
+    needFuncComma = true;
+    if (settings.shouldFlush()) settings.stream().flush();
     return settings.stream();
 }}
 @end function
 """
-# } The end   ######## LAST
+# } The end   @@@@@@@@@ LAST
 
 POINTER_TYPES = ['void', 'xcb_connection_t', 'Display', 'SECURITY_ATTRIBUTES', 'ANativeWindow', 'AHardwareBuffer']
 

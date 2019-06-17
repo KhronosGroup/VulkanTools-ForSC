@@ -114,7 +114,7 @@ def TrimTest(testname, program, programArgs, args):
     if os.path.exists('101.ppm'):
         os.rename('101.ppm', '%s.trace.ppm' % testname)
     else:
-        HandleError('Error: Screenshot not taken while tracing.')
+        HandleError('Error: Screenshot not taken while tracing with trim: out="%s".' % out)
 
     # Replay
     try:
@@ -130,7 +130,7 @@ def TrimTest(testname, program, programArgs, args):
     if os.path.exists('2.ppm'):
         os.rename('2.ppm', '%s.replay.ppm' % testname)
     else:
-        HandleError ('Error: Screenshot not taken while replaying.')
+        HandleError ('Error: Screenshot not taken while replaying with trim: out="%s".' % out)
 
     # Compare screenshots
     if not filecmp.cmp('%s.trace.ppm' % testname, '%s.replay.ppm' % testname):
@@ -167,7 +167,7 @@ def LoopTest(testname, program, programArgs, args):
     if os.path.exists('1.ppm'):
         os.rename('1.ppm', '%s.trace.ppm' % testname)
     else:
-        HandleError('Error: Screenshot not taken while tracing.')
+        HandleError('Error: Screenshot not taken while tracing in loop: out="%s"' % out)
 
     # Test against 2nd loop and 3rd loop. Screenshot will always be from the last loop
     for loopCount in [2, 3]:
@@ -185,7 +185,7 @@ def LoopTest(testname, program, programArgs, args):
         if os.path.exists('1.ppm'):
             os.rename('1.ppm', '%s.%s.replay.ppm' % (testname, str(loopCount)))
         else:
-            HandleError ('Error: Screenshot not taken while replaying.')
+            HandleError ('Error: Screenshot not taken while replaying in loop: out="%s"' % out)
 
         # Compare screenshots
         if not filecmp.cmp('%s.trace.ppm' % testname, '%s.%s.replay.ppm' % (testname, str(loopCount))):
@@ -227,7 +227,7 @@ def TraceReplayTraceTest(testname, traceFile, args):
     if os.path.exists('%s.ppm' % frame):
         os.rename('%s.ppm' % frame, '%s.trace.ppm' % testname)
     else:
-        HandleError('Error: Screenshot not taken while tracing.')
+        HandleError('Error: Screenshot not taken while tracing replay of original trace: out="%s"' % out)
 
     try:
         out = subprocess.check_output([args.VkReplayPath, '-o', '%s.vktrace' % testname, '-s', frame], env=layerEnv).decode('utf-8')
@@ -242,7 +242,7 @@ def TraceReplayTraceTest(testname, traceFile, args):
     if os.path.exists('%s.ppm' % frame):
         os.rename('%s.ppm' % frame, '%s.replay.ppm' % testname)
     else:
-        HandleError ('Error: Screenshot not taken while replaying.')
+        HandleError ('Error: Screenshot not taken while replaying replay of original trace: out="%s"' % out)
 
     # Compare screenshots
     if not filecmp.cmp('%s.trace.ppm' % testname, '%s.replay.ppm' % testname):

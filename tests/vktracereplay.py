@@ -63,7 +63,7 @@ def TraceReplayProgramTest(testname, program, programArgs, args):
     if os.path.exists('1.ppm'):
         os.rename('1.ppm', '%s.trace.ppm' % testname)
     else:
-        HandleError('Error: Screenshot not taken while tracing.')
+        HandleError('Error: Screenshot not taken while tracing; out="%s"' % out)
 
     # Replay
     try:
@@ -79,7 +79,7 @@ def TraceReplayProgramTest(testname, program, programArgs, args):
     if os.path.exists('1.ppm'):
         os.rename('1.ppm', '%s.replay.ppm'% testname)
     else:
-        HandleError ('Error: Screenshot not taken while replaying.')
+        HandleError ('Error: Screenshot not taken while replaying; out="%s"')
 
     # Compare screenshots
     if not filecmp.cmp('%s.trace.ppm' % testname, '%s.replay.ppm' % testname):

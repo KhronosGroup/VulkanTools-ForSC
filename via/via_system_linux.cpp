@@ -1294,12 +1294,12 @@ ViaSystem::ViaResults ViaSystemLinux::PrintSystemSdkInfo() {
             }
         }
     } else {
-        FILE *dnf_output = popen("dpkg-query --show --showformat='${Package} ${Version}\n' lunarg-vulkan-sdk", "r");
+        FILE *dnf_output = popen("dpkg-query --show --showformat='${Package} ${Version}\n' vulkan-sdk", "r");
         if (dnf_output != nullptr) {
             char cur_line[1035];
             std::string install_name;
             std::string install_version;
-            std::string target("lunarg-vulkan-sdk");
+            std::string target("vulkan-sdk");
             // Read the output a line at a time - output it.
             while (fgets(cur_line, sizeof(cur_line) - 1, dnf_output) != nullptr) {
                 if (!strncmp(cur_line, target.c_str(), target.size())) {

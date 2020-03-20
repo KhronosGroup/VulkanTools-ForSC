@@ -497,7 +497,7 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVe
     def paramIsPointer(self, param):
         ispointer = False
         for elem in param:
-            if ((elem.tag is not 'type') and (elem.tail is not None)) and '*' in elem.tail:
+            if elem.tag == 'type' and elem.tail is not None and '*' in elem.tail:
                 ispointer = True
         return ispointer
 
@@ -549,7 +549,7 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVe
         self.layer_factory += '\n'
         self.layer_factory += '        std::string layer_name = "VLF";\n'
         self.layer_factory += '\n'
-        self.layer_factory += '        bool log_msg(const debug_report_data *debug_data, VkFlags msg_flags, VkDebugReportObjectTypeEXT object_type,\n'
+        self.layer_factory += '        bool log_msg(const debug_report_data *debug_data, VkFlags msg_flags, VkObjectType object_type,\n'
         self.layer_factory += '                                   uint64_t src_object, const std::string &vuid_text, const char *format, ...) {\n'
         self.layer_factory += '            if (!debug_data) return false;\n'
         self.layer_factory += '            VkFlags local_severity = 0;\n'
@@ -574,22 +574,22 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkNegotiateLoaderLayerInterfaceVe
         self.layer_factory += '\n'
         self.layer_factory += '        // Pre/post hook point declarations\n'
         self.layer_factory += '        bool Information(const std::string &message) {\n'
-        self.layer_factory += '            return log_msg(vlf_report_data, VK_DEBUG_REPORT_INFORMATION_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,\n'
+        self.layer_factory += '            return log_msg(vlf_report_data, kInformationBit, VK_OBJECT_TYPE_UNKNOWN, 0,\n'
         self.layer_factory += '                           layer_name.c_str(), "%s", message.c_str());\n'
         self.layer_factory += '        }\n'
         self.layer_factory += '\n'
         self.layer_factory += '        bool PerformanceWarning(const std::string &message) {\n'
-        self.layer_factory += '            return log_msg(vlf_report_data, VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT,\n'
+        self.layer_factory += '            return log_msg(vlf_report_data, kPerformanceWarningBit, VK_OBJECT_TYPE_UNKNOWN,\n'
         self.layer_factory += '                           0, layer_name.c_str(), "%s", message.c_str());\n'
         self.layer_factory += '        }\n'
         self.layer_factory += '\n'
         self.layer_factory += '        bool Warning(const std::string &message) {\n'
-        self.layer_factory += '            return log_msg(vlf_report_data, VK_DEBUG_REPORT_WARNING_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,\n'
+        self.layer_factory += '            return log_msg(vlf_report_data, kWarningBit, VK_OBJECT_TYPE_UNKNOWN, 0,\n'
         self.layer_factory += '                           layer_name.c_str(), "%s", message.c_str());\n'
         self.layer_factory += '        }\n'
         self.layer_factory += '\n'
         self.layer_factory += '        bool Error(const std::string &message) {\n'
-        self.layer_factory += '            return log_msg(vlf_report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT, VK_DEBUG_REPORT_OBJECT_TYPE_UNKNOWN_EXT, 0,\n'
+        self.layer_factory += '            return log_msg(vlf_report_data, kDebugBit, VK_OBJECT_TYPE_UNKNOWN, 0,\n'
         self.layer_factory += '                           layer_name.c_str(), "%s", message.c_str());\n'
         self.layer_factory += '        }\n'
         self.layer_factory += '\n'

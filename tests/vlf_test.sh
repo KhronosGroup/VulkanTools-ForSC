@@ -70,10 +70,11 @@ cd $(dirname "${BASH_SOURCE[0]}")
 
 VULKANINFO="$VULKAN_TOOLS_BUILD_DIR/install/bin/vulkaninfo"
 
-VK_LAYER_PATH="../layers:../layersvt" \
-VK_ICD_FILENAMES="$VULKAN_TOOLS_BUILD_DIR/icd/VkICD_mock_icd.json" \
-    VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_demo_layer \
-    "$VULKANINFO" --show-formats > file.tmp
+export VK_LAYER_PATH="../layers:../layersvt"
+export VK_ICD_FILENAMES="$VULKAN_TOOLS_BUILD_DIR/icd/VkICD_mock_icd.json"
+export VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_demo_layer
+( set )
+"$VULKANINFO" --show-formats > file.tmp
 
 printf "$GREEN[ RUN      ]$NC $0\n"
 if [ -f file.tmp ]
@@ -83,6 +84,7 @@ then
     then
         printf "$GREEN[  PASSED  ]$NC $0\n"
     else
+        tail -10 file.tmp
         printf "$RED[  FAILED  ]$NC $0\n"
         rm file.tmp
         exit 1

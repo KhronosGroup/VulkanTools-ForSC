@@ -74,17 +74,25 @@ export VK_LAYER_PATH="../layers:../layersvt"
 export VK_ICD_FILENAMES="$VULKAN_TOOLS_BUILD_DIR/icd/VkICD_mock_icd.json"
 export VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_demo_layer
 (
-echo ============
+echo 1============
 set
-echo ============
+echo 2============
+ls /home/travis/build
+echo 3============
+ls /home/travis/build/LunarG
+echo 4============
+ls /home/travis/build/LunarG/VulkanTools
+echo 5============
+ls /home/travis/build/LunarG/VulkanTools/Vulkan-Tools/dbuild/
+echo 6============
 ls $VULKAN_TOOLS_BUILD_DIR/..
-echo ============
+echo 7============
 ls $VULKAN_TOOLS_BUILD_DIR
-echo ============
+echo 8============
 ls $VULKAN_LOADER_BUILD_DIR/..
-echo ============
+echo 9============
 ls $VULKAN_LOADER_BUILD_DIR
-echo ============
+echo 10============
 )
 "$VULKANINFO" --show-formats > file.tmp
 

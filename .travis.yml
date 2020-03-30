@@ -102,10 +102,10 @@ script:
   - |
     if [[ "$VULKAN_BUILD_TARGET" == "LINUX" ]]; then
       # Run Tests
-      VL_BUILD=$TRAVIS_BUILD_DIR/Vulkan-ValidationLayers/dbuild
-      VT_BUILD=$TRAVIS_BUILD_DIR/Vulkan-Tools/dbuild
-      VLD_BUILD=$TRAVIS_BUILD_DIR/Vulkan-Loader/dbuild
-      DEVSIM_PROFILES=$TRAVIS_BUILD_DIR/Vulkan-ValidationLayers/tests/device_profiles
+      VL_BUILD=$TRAVIS_BUILD_DIR/dbuild/Vulkan-ValidationLayers/dbuild
+      VT_BUILD=$TRAVIS_BUILD_DIR/dbuild/Vulkan-Tools/dbuild
+      VLD_BUILD=$TRAVIS_BUILD_DIR/dbuild/Vulkan-Loader/dbuild
+      DEVSIM_PROFILES=$TRAVIS_BUILD_DIR/dbuild/Vulkan-ValidationLayers/tests/device_profiles
       export VK_LAYER_PATH=$VK_LAYER_PATH:$VL_BUILD/layers
       export VK_ICD_FILENAMES=$VT_BUILD/icd/VkICD_mock_icd.json
       # Run vlf_test with mock ICD to ensure layer factory is working

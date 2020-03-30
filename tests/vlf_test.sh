@@ -52,9 +52,10 @@ if [ -z ${VULKAN_TOOLS_BUILD_DIR+x} ]; then
 fi
 
 if [ ! -z ${VULKAN_LOADER_BUILD_DIR+x} ]; then
-   export LD_LIBRARY_PATH="${VULKAN_LOADER_BUILD_DIR}/install/lib;${LD_LIBRARY_PATH}"
+   echo 1@@@ $LD_LIBRARY_PATH
+   export LD_LIBRARY_PATH="${VULKAN_LOADER_BUILD_DIR}/install/lib:${LD_LIBRARY_PATH}"
 fi
-echo $LD_LIBRARY_PATH
+echo 2@@@ $LD_LIBRARY_PATH
 
 if [ -t 1 ] ; then
     RED='\033[0;31m'

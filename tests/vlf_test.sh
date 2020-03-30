@@ -73,7 +73,19 @@ VULKANINFO="$VULKAN_TOOLS_BUILD_DIR/install/bin/vulkaninfo"
 export VK_LAYER_PATH="../layers:../layersvt"
 export VK_ICD_FILENAMES="$VULKAN_TOOLS_BUILD_DIR/icd/VkICD_mock_icd.json"
 export VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_demo_layer
-( set )
+(
+echo ============
+set
+echo ============
+ls $VULKAN_TOOLS_BUILD_DIR/..
+echo ============
+ls $VULKAN_TOOLS_BUILD_DIR
+echo ============
+ls $VULKAN_LOADER_BUILD_DIR/..
+echo ============
+ls $VULKAN_LOADER_BUILD_DIR
+echo ============
+)
 "$VULKANINFO" --show-formats > file.tmp
 
 printf "$GREEN[ RUN      ]$NC $0\n"

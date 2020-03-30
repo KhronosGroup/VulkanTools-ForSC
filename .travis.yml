@@ -104,15 +104,16 @@ script:
       # Run Tests
       VL_BUILD=$TRAVIS_BUILD_DIR/Vulkan-ValidationLayers/build
       VT_BUILD=$TRAVIS_BUILD_DIR/Vulkan-Tools/build
+      VLD_BUILD=$TRAVIS_BUILD_DIR/Vulkan-Loader/build
       DEVSIM_PROFILES=$TRAVIS_BUILD_DIR/Vulkan-ValidationLayers/tests/device_profiles
       export VK_LAYER_PATH=$VK_LAYER_PATH:$VL_BUILD/layers
       export VK_ICD_FILENAMES=$VT_BUILD/icd/VkICD_mock_icd.json
       # Run vlf_test with mock ICD to ensure layer factory is working
-      dbuild/tests/vlf_test.sh -t $VT_BUILD
+      dbuild/tests/vlf_test.sh -t $VT_BUILD -l $VLD_BUILD
       # Run apidump_test with mock ICD to ensure apidump layer is working
-      dbuild/tests/apidump_test.sh  -t $VT_BUILD
+      dbuild/tests/apidump_test.sh  -t $VT_BUILD -l $VLD_BUILD
       # Run devsim tests with mock ICD to ensure devsim is working
-      dbuild/tests/devsim_layer_test.sh -t $VT_BUILD
+      dbuild/tests/devsim_layer_test.sh -t $VT_BUILD -l $VLD_BUILD
     fi
   - |
     if [[ "$VULKAN_BUILD_TARGET" == "ANDROID" ]]; then

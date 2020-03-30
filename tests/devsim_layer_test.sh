@@ -5,6 +5,9 @@
 # This script requires a path to the Vulkan-Tools build directory so that it can locate
 # vulkaninfo and the mock ICD. The path can be defined using the environment variable
 # VULKAN_TOOLS_BUILD_DIR or using the command-line argument -t or --tools.
+#
+# The vulkan loader build dir can be specified using the -l or --loader command line arg.
+# This might be needed if a loader is not installed on the system, or is out-of-date.
 
 # Track unrecognized arguments.
 UNRECOGNIZED=()
@@ -16,6 +19,11 @@ do
    case $KEY in
       -t|--tools)
       VULKAN_TOOLS_BUILD_DIR="$2"
+      shift
+      shift
+      ;;
+      -l|--loader)
+      VULKAN_LOADER_BUILD_DIR="$2"
       shift
       shift
       ;;
@@ -36,6 +44,10 @@ if [ -z ${VULKAN_TOOLS_BUILD_DIR+x} ]; then
    echo "ERROR: Vulkan-Tools build directory is undefined."
    echo "Please set VULKAN_TOOLS_BUILD_DIR or use the -t|--tools <path> command line option."
    exit 1
+fi
+
+if [ ! -z ${VULKAN_LOADER_BUILD_DIR+x} ]; then
+   export LD_LIBRARY_PATH="${VULKAN_LOADER_BUILD_DIR}/install/lib;${LD_LIBRARY_PATH}"
 fi
 
 set -o nounset

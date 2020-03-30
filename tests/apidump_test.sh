@@ -7,6 +7,10 @@
 # script requires a path to the Vulkan-Tools build directory so that it can locate
 # vulkaninfo and the mock ICD. The path can be defined using the environment variable
 # VULKAN_TOOLS_BUILD_DIR or using the command-line argument -t or --tools.
+#
+# The vulkan loader build dir can be specified using the -l or --loader command line arg.
+# This might be needed if a loader is not installed on the system, or is out-of-date.
+
 
 # Track unrecognized arguments.
 UNRECOGNIZED=()
@@ -18,6 +22,11 @@ do
    case $KEY in
       -t|--tools)
       VULKAN_TOOLS_BUILD_DIR="$2"
+      shift
+      shift
+      ;;
+      -l|--loader)
+      VULKAN_LOADER_BUILD_DIR="$2"
       shift
       shift
       ;;
@@ -42,6 +51,10 @@ if [ -z ${VULKAN_TOOLS_BUILD_DIR+x} ]; then
    exit 1
 fi
 
+if [ ! -z ${VULKAN_LOADER_BUILD_DIR+x} ]; then
+   export LD_LIBRARY_PATH="${VULKAN_LOADER_BUILD_DIR}/install/lib;${LD_LIBRARY_PATH}"
+fi
+
 if [ -t 1 ] ; then
     RED='\033[0;31m'
     GREEN='\033[0;32m'
@@ -55,6 +68,8 @@ fi
 pushd $(dirname "${BASH_SOURCE[0]}")
 
 VULKANINFO="$VULKAN_TOOLS_BUILD_DIR/install/bin/vulkaninfo"
+
+VK_LAYER_PATH="../layers:../layersvt" \
 VK_ICD_FILENAMES="$VULKAN_TOOLS_BUILD_DIR/icd/VkICD_mock_icd.json" \
     VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_api_dump \
     "$VULKANINFO" --show-formats > apidump_file.tmp

@@ -95,16 +95,16 @@ script:
           -C../helper.cmake \
           ..
       cmake --build . -- -j $core_count
-      export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/layers:$PWD/layersvt:$TRAVIS_BUILD_DIR/Vulkan-Loader/dbuild/loader
+      export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/layers:$PWD/layersvt:$TRAVIS_BUILD_DIR/Vulkan-Loader/build/loader
       export VK_LAYER_PATH=$PWD/layers:$PWD/layersvt
       popd
     fi
   - |
     if [[ "$VULKAN_BUILD_TARGET" == "LINUX" ]]; then
       # Run Tests
-      VL_BUILD=$TRAVIS_BUILD_DIR/Vulkan-ValidationLayers/dbuild
-      VT_BUILD=$TRAVIS_BUILD_DIR/Vulkan-Tools/dbuild
-      VLD_BUILD=$TRAVIS_BUILD_DIR/Vulkan-Loader/dbuild
+      VL_BUILD=$TRAVIS_BUILD_DIR/Vulkan-ValidationLayers/build
+      VT_BUILD=$TRAVIS_BUILD_DIR/Vulkan-Tools/build
+      VLD_BUILD=$TRAVIS_BUILD_DIR/Vulkan-Loader/build
       DEVSIM_PROFILES=$TRAVIS_BUILD_DIR/Vulkan-ValidationLayers/tests/device_profiles
       export VK_LAYER_PATH=$VK_LAYER_PATH:$VL_BUILD/layers
       export VK_ICD_FILENAMES=$VT_BUILD/icd/VkICD_mock_icd.json

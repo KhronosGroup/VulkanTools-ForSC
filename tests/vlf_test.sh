@@ -77,22 +77,28 @@ export VK_INSTANCE_LAYERS=VK_LAYER_LUNARG_demo_layer
 echo 1============
 set
 echo 2============
-ls /home/travis/build
+echo /home/travis/build/LunarG/VulkanTools/*build/Vulkan-Tools/*build
 echo 3============
 ls /home/travis/build/LunarG
 echo 4============
 ls /home/travis/build/LunarG/VulkanTools
 echo 5============
-ls /home/travis/build/LunarG/VulkanTools/Vulkan-Tools/dbuild/
+ls /home/travis/build/LunarG/VulkanTools/dbuild/
 echo 6============
-ls $VULKAN_TOOLS_BUILD_DIR/..
+ls /home/travis/build/LunarG/VulkanTools/dbuild/Vulkan-Tools
 echo 7============
-ls $VULKAN_TOOLS_BUILD_DIR
+ls /home/travis/build/LunarG/VulkanTools/dbuild/Vulkan-Tools/dbuild
 echo 8============
-ls $VULKAN_LOADER_BUILD_DIR/..
+ls /home/travis/build/LunarG/VulkanTools/dbuild/Vulkan-Tools/build
 echo 9============
-ls $VULKAN_LOADER_BUILD_DIR
+ls $VULKAN_TOOLS_BUILD_DIR/..
 echo 10============
+ls $VULKAN_TOOLS_BUILD_DIR
+echo 11============
+ls $VULKAN_LOADER_BUILD_DIR/..
+echo 12============
+ls $VULKAN_LOADER_BUILD_DIR
+echo 13============
 )
 "$VULKANINFO" --show-formats > file.tmp
 

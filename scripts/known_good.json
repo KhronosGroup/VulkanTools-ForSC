@@ -55,6 +55,17 @@
       ]
     },
     {
+      "name": "robin-hood-hashing",
+      "url": "https://github.com/martinus/robin-hood-hashing.git",
+      "sub_dir": "robin-hood-hashing",
+      "build_dir": "robin-hood-hashing/build",
+      "install_dir": "robin-hood-hashing/build/install",
+      "cmake_options": [
+        "-DRH_STANDALONE_PROJECT=OFF"
+      ],
+      "commit": "3.11.3"
+    },
+    {
       "name" : "Vulkan-ValidationLayers",
       "url" : "https://github.com/KhronosGroup/Vulkan-ValidationLayers.git",
       "sub_dir" : "Vulkan-ValidationLayers",
@@ -69,10 +80,14 @@
         {
           "var_name" : "VULKAN_LOADER_INSTALL_DIR",
           "repo_name" : "Vulkan-Loader"
+        },
+        {
+          "var_name": "ROBIN_HOOD_HASHING_INSTALL_DIR",
+          "repo_name": "robin-hood-hashing"
         }
       ],
       "cmake_options" : [
-        "-DBUILD_TESTS=FALSE","-DBUILD_LAYERS=OFF","-DBUILD_LAYER_SUPPORT_FILES=ON"
+        "-DBUILD_TESTS=FALSE","-DBUILD_LAYERS=OFF","-DBUILD_LAYER_SUPPORT_FILES=ON","-DUSE_ROBIN_HOOD_HASHING=OFF"
       ]
     }
   ],

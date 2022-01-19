@@ -222,10 +222,10 @@
                     "key": "filename",
                     "env": "VK_DEVSIM_FILENAME",
                     "label": "Devsim JSON configuration file",
-                    "description": "Path of a devsim configuration file to load.",
+                    "description": "Name of one or more configuration file(s) to load. This variable can have a delimited list of files to be loaded. On Windows, the delimiter is ; else it is :. Files are loaded in order. Later files can override settings from earlier files.",
                     "type": "LOAD_FILE",
                     "filter": "*.json",
-                    "default": "${VULKAN_CONTENT}/VK_LAYER_LUNARG_device_simulation/portability_desktop_1_0.json"
+                    "default": ""
                 },
                 {
                     "key": "debug_enable",
@@ -233,19 +233,19 @@
                     "label": "Debug Enable",
                     "description": "Enables debug message output.",
                     "type": "BOOL",
-                    "default": true
+                    "default": false
                 },
                 {
                     "key": "emulate_portability",
                     "env": "VK_DEVSIM_EMULATE_PORTABILITY_SUBSET_EXTENSION",
                     "label": "Emulate VK_KHR_portability_subset",
-                    "description": "Emulate that VK_KHR_portability_subset extension is supported by the device.",
+                    "description": "Enables emulation of the VK_KHR_portability_subset extension.",
                     "platforms": [
                         "WINDOWS",
                         "LINUX"
                     ],
                     "type": "BOOL",
-                    "default": true
+                    "default": false
                 },
                 {
                     "key": "exit_on_error",

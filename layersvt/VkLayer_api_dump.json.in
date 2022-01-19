@@ -193,7 +193,7 @@
                             "label": "Type Size",
                             "description": "The number of characters the name of a type should consume, assuming more are not required",
                             "type": "INT",
-                            "default": 32,
+                            "default": 0,
                             "range": {
                                 "min": 0
                             },
@@ -269,6 +269,13 @@
                             }
                         }
                     ]
+                },
+                {
+                    "key": "show_thread_and_frame",
+                    "label": "Show Thread and Frame",
+                    "description": "Show the thread and frame of each function called",
+                    "type": "BOOL",
+                    "default": true
                 }
             ]
         }

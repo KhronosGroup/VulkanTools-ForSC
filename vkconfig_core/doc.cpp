@@ -75,7 +75,7 @@ static void WriteSettingsOverviewHtml(std::string& text, const Layer& layer, con
             text += "</tr>\n";
         }
 
-        if (IsEnum(setting->type)) {
+        if (IsEnum(setting->type) || IsFlags(setting->type)) {
             const SettingMetaEnumeration& setting_enum = static_cast<const SettingMetaEnumeration&>(*setting);
             for (std::size_t j = 0, o = setting_enum.enum_values.size(); j < o; ++j) {
                 WriteSettingsOverviewHtml(text, layer, setting_enum.enum_values[j].settings);
@@ -106,7 +106,7 @@ static void WriteSettingsOverviewMarkdown(std::string& text, const Layer& layer,
             text += BuildPlatformsMarkdown(setting->platform_flags) + "|\n";
         }
 
-        if (IsEnum(setting->type)) {
+        if (IsEnum(setting->type) || IsFlags(setting->type)) {
             const SettingMetaEnumeration& setting_enum = static_cast<const SettingMetaEnumeration&>(*setting);
             for (std::size_t j = 0, o = setting_enum.enum_values.size(); j < o; ++j) {
                 WriteSettingsOverviewMarkdown(text, layer, setting_enum.enum_values[j].settings);
@@ -162,13 +162,19 @@ static void WriteSettingsDetailsHtml(std::string& text, const Layer& layer, cons
                 "\t<p>Setting Type: <span class=\"code\">%s</span> - Setting Default Value: <span class=\"code\">%s</span></p>\n",
                 GetToken(setting->type), setting->Export(EXPORT_MODE_DOC).c_str());
 
-            if (IsEnum(setting->type)) {
+            if (IsEnum(setting->type) || IsFlags(setting->type)) {
                 const SettingMetaEnumeration& setting_enum = static_cast<const SettingMetaEnumeration&>(*setting);
 
                 text += "<table>\n";
-                text +=
-                    "<thead><tr><th>Enum Value</th><th>Label</th><th class=\"desc\">Description</th><th>Platforms "
-                    "</th></tr></thead>\n";
+                if (IsEnum(setting->type)) {
+                    text +=
+                        "<thead><tr><th>Enum Value</th><th>Label</th><th class=\"desc\">Description</th><th>Platforms ";
+                } else {
+                    // Flags
+                    text +=
+                        "<thead><tr><th>Flags</th><th>Label</th><th class=\"desc\">Description</th><th>Platforms ";
+                }
+                text += "</th></tr></thead>\n";
                 text += "<tbody>\n";
                 for (std::size_t j = 0, o = setting_enum.enum_values.size(); j < o; ++j) {
                     const SettingEnumValue& value = setting_enum.enum_values[j];
@@ -227,10 +233,15 @@ static void WriteSettingsDetailsMarkdown(std::string& text, const Layer& layer, 
 
             text += format("Setting Type: %s - Setting Default Value: %s\n" , GetToken(setting->type), setting->Export(EXPORT_MODE_DOC).c_str());
 
-            if (IsEnum(setting->type)) {
+            if (IsEnum(setting->type) || IsFlags(setting->type)) {
                 const SettingMetaEnumeration& setting_enum = static_cast<const SettingMetaEnumeration&>(*setting);
 
-                text += "|Enum Value|Label|Description|Platforms|\n";
+                if (IsEnum(setting->type)) {
+                    text += "|Enum Value|Label|Description|Platforms|\n";
+                } else {
+                    // Flags
+                    text += "|Flags|Label|Description|Platforms|\n";
+                }
                 text += "|---|---|---|---|\n";
                 for (std::size_t j = 0, o = setting_enum.enum_values.size(); j < o; ++j) {
                     const SettingEnumValue& value = setting_enum.enum_values[j];

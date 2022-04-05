@@ -11,6 +11,12 @@
 
 # Release notes
 
+## [Vulkan Configurator 3.0.0](https://github.com/LunarG/VulkanTools/tree/master) - ??? 202?
+
+### Features:
+- Redesign main window UI around tabs
+- Add check box to disable all Vulkan Layers
+
 ## [Vulkan Configurator 2.5.2](https://github.com/LunarG/VulkanTools/tree/master) - December 2022
 
 ### Improvements:

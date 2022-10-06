@@ -74,6 +74,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows" OR
     option(BUILD_MONITOR "Build monitor layer" ON)
     option(BUILD_SCREENSHOT "Build screenshot layer" ON)
     option(BUILD_VIA "Build via" ON)
+    option(BUILD_JSON_GEN_LAYER_TESTS "Build json generation layer tests" ON)
 
     option(BUILD_LAYERMGR "Build Vulkan Configurator" ON)
 
@@ -114,6 +115,10 @@ endif()
 
 if(BUILD_VIA)
     add_subdirectory(via)
+endif()
+
+if(BUILD_JSON_GEN_LAYER_TESTS)
+    add_subdirectory(jsonGenLayerTests)
 endif()
 
 if(BUILD_APIDUMP OR BUILD_MONITOR OR BUILD_SCREENSHOT)

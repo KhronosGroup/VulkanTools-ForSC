@@ -60,6 +60,7 @@ endif()
 if (NOT APPLE)
     if(BUILD_APIDUMP)
         set(TARGET_NAMES ${TARGET_NAMES} VkLayer_api_dump)
+        set(TARGET_NAMES ${TARGET_NAMES} VkLayer_json_gen)
     endif()
     if(BUILD_MONITOR)
         set(TARGET_NAMES ${TARGET_NAMES} VkLayer_monitor)
@@ -72,7 +73,8 @@ if (NOT APPLE)
     set(CMAKE_INSTALL_RPATH ${VK_LAYER_RPATH})
 else()
     if(BUILD_APIDUMP)
-        set(TARGET_NAMES VkLayer_api_dump)
+        set(TARGET_NAMES ${TARGET_NAMES} VkLayer_api_dump)
+        set(TARGET_NAMES ${TARGET_NAMES} VkLayer_json_gen)
     endif()
 endif ()
 
@@ -84,6 +86,7 @@ if (WIN32)
             VERBATIM
         )
         add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
+
         target_link_Libraries(VkLayer_${target} Vulkan::Headers Vulkan::UtilityHeaders Vulkan::LayerSettings ${VkLayer_utils_LIBRARY})
         set_target_properties(VkLayer_${target} PROPERTIES
             CXX_STANDARD 17
@@ -92,6 +95,15 @@ if (WIN32)
         )
         set_target_properties(copy-${target}-def-file PROPERTIES FOLDER "VkLayer_${target}")
         set_target_properties(VkLayer_${target} PROPERTIES FOLDER "VkLayer_${target}")
+
+        target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY})
+        if(BUILD_APIDUMP)
+            add_dependencies(VkLayer_${target} generate_api_cpp generate_api_h generate_api_html_h)
+            add_dependencies(VkLayer_${target} generate_api_cpp generate_api_h generate_api_json_h)
+        endif()
+        find_package(OpenSSL REQUIRED)
+        target_link_libraries(VkLayer_${target} OpenSSL::SSL)
+        target_link_libraries(VkLayer_${target} OpenSSL::Crypto)
     endmacro()
 else()
     macro(add_vk_layer target)
@@ -104,6 +116,9 @@ else()
             target_link_Libraries(VkLayer_${target} log)
         endif()
         install(TARGETS VkLayer_${target} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+        find_package(OpenSSL REQUIRED)
+        target_link_libraries(VkLayer_${target} OpenSSL::SSL)
+        target_link_libraries(VkLayer_${target} OpenSSL::Crypto)
     endmacro()
 endif()
 
@@ -164,6 +179,8 @@ if(BUILD_APIDUMP)
     add_vk_layer(api_dump api_dump.cpp api_dump.h vk_layer_table.cpp vk_layer_table.h VkLayer_api_dump.def api_dump_layer.md VkLayer_api_dump.json.in ../scripts/api_dump_generator.py)
     add_dependencies(VkLayer_api_dump generate_api_cpp generate_api_text_h generate_api_html_h generate_api_json_h
         generate_api_video_text_h generate_api_video_html_h generate_api_video_json_h)
+
+    run_vulkantools_vk_xml_generate(json_gen_generator.py json_gen.cpp)
 endif ()
 
 if (NOT APPLE)
@@ -179,6 +196,13 @@ if (ANDROID)
     message(DEBUG "Android doesn't use json manifests.")
     return()
 endif()
+
+if(BUILD_APIDUMP)
+    add_vk_layer(api_dump api_dump.cpp vk_layer_table.cpp ../vku/vk_layer_settings.cpp ../vku/vk_layer_settings.h)
+    add_vk_layer(json_gen json_gen.cpp vk_layer_table.cpp ../vku/vk_layer_settings.cpp ../vku/vk_layer_settings.h)
+endif ()
+
+# json file creation
 
 # The output file needs Unix "/" separators or Windows "\" separators
 # Windows paths need to start with ".\", Unix paths do not.

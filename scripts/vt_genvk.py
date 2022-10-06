@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 #
 # Copyright (c) 2013-2018 The Khronos Group Inc.
+# Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -299,6 +300,35 @@ def makeGenOpts(args):
             alignFuncParam    = 48,
             expandEnumerants  = False)
     ]
+    
+    # API dump generator options for json_gen.cpp
+    genOpts['json_gen.cpp'] = [
+        JSONGenOutputGenerator,
+        JSONGenGeneratorOptions(
+            conventions       = conventions,
+            input             = COMMON_CODEGEN_JSON_GEN,
+            filename          = 'json_gen.cpp',
+            apiname           = 'vulkan',
+            genpath           = None,
+            profile           = None,
+            versions          = featuresPat,
+            emitversions      = featuresPat,
+            defaultExtensions = 'vulkan',
+            addExtensions     = addExtensionsPat,
+            removeExtensions  = removeExtensionsPat,
+            emitExtensions    = emitExtensionsPat,
+            prefixText        = prefixStrings + vkPrefixStrings,
+            genFuncPointers   = True,
+            protectFile       = protect,
+            protectFeature    = False,
+            protectProto      = None,
+            protectProtoStr   = 'VK_NO_PROTOTYPES',
+            apicall           = 'VKAPI_ATTR ',
+            apientry          = 'VKAPI_CALL ',
+            apientryp         = 'VKAPI_PTR *',
+            alignFuncParam    = 48,
+            expandEnumerants = False)
+        ]
 
     # API dump generator options for api_dump_video_json.h
     genOpts['api_dump_video_json.h'] = [
@@ -491,6 +521,8 @@ if __name__ == '__main__':
     # VulkanTools generator additions
     from tool_helper_file_generator import ToolHelperFileOutputGenerator, ToolHelperFileOutputGeneratorOptions
     from api_dump_generator import ApiDumpGeneratorOptions, ApiDumpOutputGenerator, COMMON_CODEGEN, TEXT_CODEGEN, HTML_CODEGEN, JSON_CODEGEN
+    from json_gen_generator import JSONGenGeneratorOptions, JSONGenOutputGenerator, COMMON_CODEGEN_JSON_GEN
+    from layer_factory_generator import LayerFactoryGeneratorOptions, LayerFactoryOutputGenerator
     from vkconventions import VulkanConventions
 
     # This splits arguments which are space-separated lists

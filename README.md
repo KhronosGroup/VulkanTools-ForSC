@@ -1,4 +1,4 @@
-# Vulkan Ecosystem Tools
+# Vulkan Ecosystem Tools for Vulkan SCx Development
 
 The repository contains the following Vulkan Tools:
 - [Vulkan Configurator](vkconfig/README.md)

@@ -25,6 +25,7 @@ on:
   pull_request:
     branches:
       - master
+      - sc_main
 
 jobs:
   code-format:

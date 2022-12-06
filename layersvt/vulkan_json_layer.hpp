@@ -82,7 +82,11 @@ class PipelineData {
 
     ObjectResCreateInfo objResInfo {};
 
-    PipelineData() { m_pipelineCount = 0; }
+    PipelineData() {
+        m_pipelineCount = 0;
+        getProcessName();
+        getBaseDirectoryPath();
+    }
 
     ~PipelineData() {
         for (int i = 0; i < m_jsonStringsList.size(); i++)
@@ -557,7 +561,7 @@ class PipelineData {
         vk_json::s_num_spaces += 4;
 
         for (unsigned int i = 0; i < stageCount; i++) {
-            std::string shaderPath = getenv("VK_JSON_FILE_PATH") ? getenv("VK_JSON_FILE_PATH") : "";
+            std::string shaderPath = m_baseDir;
             std::string shaderName = "";
             std::stringstream s;
             s << "_pipeline_" << m_pipelineCount;
@@ -782,9 +786,7 @@ class PipelineData {
 
     void dumpObjectReservationInfo()
     {
-        std::string filename = getenv("VK_JSON_FILE_PATH");
-        filename += getProcessName();
-        filename += "_objectResInfo.hpp";
+        std::string filename = m_baseDir + m_exeName + "_objectResInfo.hpp";
         FILE* fp = fopen(filename.c_str(), "w");
         if (!fp) {
             std::cout << "Unable to create file!";
@@ -792,8 +794,8 @@ class PipelineData {
         }
 
         std::stringstream ss {};
-        ss << "#ifndef " << getProcessName() << "_objectResInfo_HPP\n";
-        ss << "#define " << getProcessName() << "_objectResInfo_HPP\n\n";
+        ss << "#ifndef " << m_exeName << "_objectResInfo_HPP\n";
+        ss << "#define " << m_exeName << "_objectResInfo_HPP\n\n";
         ss << "static VkDeviceObjectReservationCreateInfo g_objectResCreateInfo {};\n";
         ss << "static void SetObjectResCreateInfo() \n {\n";
         ss << "\tg_objectResCreateInfo.sType                                      = VK_STRUCTURE_TYPE_DEVICE_OBJECT_RESERVATION_CREATE_INFO;\n";
@@ -845,10 +847,13 @@ class PipelineData {
 
    private:
     // TODO: Better way to do this?
-    const char* getProcessName() 
+    void getProcessName()
     {
 #ifdef _WIN32
-        if (GetModuleFileName(0, m_exeName, MAX_NAME_SIZE) == 0) return "";
+        if (GetModuleFileName(0, m_exeName, MAX_NAME_SIZE) == 0) {
+            std::cout << "Error obtaining process name!" << std::endl;
+            exit(1);
+        }
 
         // Some raw C code to get the .exe name on Windows.
         char* p = m_exeName + (strnlen(m_exeName, MAX_NAME_SIZE) - 1);
@@ -879,28 +884,29 @@ class PipelineData {
         std::reverse(tmp.begin(), tmp.end());
         strncpy(m_exeName, tmp.c_str(), sizeof(m_exeName) - 1);
 #endif
-        return m_exeName;
     }
 
-    FILE* openFile() 
+    void getBaseDirectoryPath()
     {
-        char* path = getenv("VK_JSON_FILE_PATH");
-        std::string filename;
-        if (path) {
-            filename = path;
+        m_baseDir = getenv("VK_JSON_FILE_PATH") ? getenv("VK_JSON_FILE_PATH") : "";
+        if (!m_baseDir.empty()) {
 #ifdef _WIN32
-            filename += "\\";
+            m_baseDir += "\\";
 #else
-            filename += "/";
+            m_baseDir += "/";
 #endif
         } else {
-            std::cout << "Error with setting VK_JSON_FILE_PATH. Please set the environment variable.\n";
-            exit(-1);
-        }
-        std::cout << "Dumping generated JSON into:  " << path << "\n";
+	    std::cout << "Error with querying VK_JSON_FILE_PATH. Please set the environment variable.\n";
+	    exit(-1);
+	}
+    }
+
+    FILE* openFile()
+    {
+        std::string filename = m_baseDir + m_exeName;
+        std::cout << "Dumping generated JSON into:  " << m_baseDir << "\n";
         std::stringstream ss;
         ss << "pipeline_" << m_pipelineCount;
-        filename += getProcessName();
         filename += "_";
         filename += ss.str();
         filename += std::string(".json");
@@ -958,6 +964,7 @@ class PipelineData {
     char m_exeName[MAX_NAME_SIZE] = { 0 };
     bool m_renderPassFlag = false;
     bool m_renderPass2Flag = false;
+    std::string m_baseDir;
 };
 
 static PipelineData s_pipe;

@@ -253,6 +253,11 @@ class PipelineData {
         m_shaderInfoMap.insert(std::make_pair(*m, s));
     }
 
+    void deleteShaderModuleInfo(VkShaderModule m)
+    {
+        m_shaderInfoMap.erase(m);
+    }
+
     void setSamplerInfo(const VkSamplerCreateInfo* pCreateInfo, VkSampler* pSampler)
     {
         if (pCreateInfo == nullptr || pSampler == nullptr) {

@@ -270,6 +270,9 @@ JSON_INTERCEPT_API = {
     'vkCreateShaderModule':
         'vk_json::s_pipe.setShaderModuleInfo(pCreateInfo, pShaderModule);'
     ,
+    'vkDestroyShaderModule':
+        'vk_json::s_pipe.deleteShaderModuleInfo(shaderModule);'
+    ,
     'vkCreateGraphicsPipelines':
         'vk_json::s_pipe.objResInfo.graphicsPipelineRequestCount += createInfoCount;\n'
 		'\tvk_json::s_pipe.dumpGraphicsPipeline(device, createInfoCount, pCreateInfos, pPipelines);'

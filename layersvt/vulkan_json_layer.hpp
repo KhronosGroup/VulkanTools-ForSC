@@ -23,6 +23,9 @@
 #include <unistd.h>
 #endif // __linux__
 #include "vk_layer_table.h"
+
+// Declare that we want OpenSSL API version 1.1.0 compatibility
+#define OPENSSL_API_COMPAT 0x10100000L
 #include "openssl/md5.h"
 
 namespace vk_json 

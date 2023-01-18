@@ -119,8 +119,8 @@ cmake -DOPENSSL_CRYPTO_LIBRARY="/usr/local/opt/openssl@3/lib/libcrypto.dylib" \
 
 ### 64-bit Windows Build 
 ```
-    git clone --recurse-submodules git@github.com:LunarG/VulkanTools.git
-    cd VulkanTools
+    git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
+    cd VulkanTools-ForSC
     mkdir build
     cd build
     ..\scripts\update_deps.py --arch x64
@@ -130,8 +130,8 @@ cmake -DOPENSSL_CRYPTO_LIBRARY="/usr/local/opt/openssl@3/lib/libcrypto.dylib" \
 
 ### 32-bit Windows Build 
 ```
-    git clone --recurse-submodules git@github.com:LunarG/VulkanTools.git
-    cd VulkanTools
+    git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
+    cd VulkanTools-ForSC
     mkdir build
     cd build
     ..\scripts\update_deps.py --arch Win32
@@ -148,7 +148,7 @@ ctest -C Release  --output-on-failure --parallel 16
 
 ### Linux and macOS Build
 ```
-    git clone --recurse-submodules git@github.com:LunarG/VulkanTools.git
+    git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
     cd VulkanTools
     mkdir build
     cd build
@@ -176,10 +176,14 @@ To create your local git repository of VulkanTools:
 cd YOUR_DEV_DIRECTORY
 
 # Clone the VulkanTools repo
-git clone --recurse-submodules git@github.com:LunarG/VulkanTools.git
+git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
 
 # Enter the folder containing the cloned source
-cd VulkanTools
+cd VulkanTools-ForSC
+
+# This will perform some initialization and ensure subcomponents are built:
+./update_external_sources.sh    # linux
+./update_external_sources.bat   # windows
 ```
 
 ### Repository Dependencies
@@ -256,8 +260,8 @@ Visual Studio is used to build the software, and will re-run CMake as appropriat
 
 To build all Windows targets (e.g. in a "Developer Command Prompt for VS2017" window):
 ```
-cd VulkanTools  # cd to the root of the VulkanTools git repository
-cmake -S . -B dbuild -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 15 2017 Win64" -DVULKAN_HEADERS_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_LOADER_INSTALL_DIR=absolute_path_to_install_directory
+cd VulkanTools-ForSC  # cd to the root of the VulkanTools-ForSC git repository
+cmake -H. -Bdbuild -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 14 2015 Win64" -DCMAKE_INSTALL_PREFIX=build/install -DVULKAN_HEADERS_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_LOADER_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_VALIDATIONLAYERS_INSTALL_DIR=absolute_path_to_install_directory
 cmake --build dbuild --config Debug --target install
 ```
 
@@ -278,7 +282,7 @@ and 64-bit Windows since both versions of EXEs and DLLs exist simultaneously on 
 
 To do this, simply create and build the release versions of each target:
 ```
-cd VulkanTools  # cd to the root of the Vulkan git repository
+cd VulkanTools-ForSC  # cd to the root of the Vulkan git repository
 mkdir build
 cd build
 cmake -G "Visual Studio 14 Win64" ..
@@ -295,8 +299,8 @@ This build process builds all items in the VulkanTools repository
 
 Example debug build:
 ```
-cd VulkanTools  # cd to the root of the VulkanTools git repository
-cmake -H. -Bdbuild -DCMAKE_BUILD_TYPE=Debug -DVULKAN_HEADERS_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_LOADER_INSTALL_DIR=absolute_path_to_install_directory
+cd VulkanTools-ForSC  # cd to the root of the VulkanTools-ForSC git repository
+cmake -H. -Bdbuild -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=build/install -DVULKAN_HEADERS_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_LOADER_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_VALIDATIONLAYERS_INSTALL_DIR=absolute_path_to_install_directory
 cd dbuild
 make -j8
 ```

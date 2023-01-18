@@ -15,6 +15,24 @@ Both these tools are also no longer part of the [Vulkan SDK](https://www.lunarg.
 
 Vulkan-Layer-Factory is deprecated and has been archived in its own repository which is available [here](https://github.com/LunarG/Vulkan-Layer-Factory).
 
+## Vulkan Tools for SC
+
+This repository also contains the following tools to assist in Vulkan SC development:
+
+- [`VK_LAYER_KHRONOS_json_gen`](layersvt/README.md)
+- [Json Gen Layer Tests](jsonGenLayerTests/README.md)
+
+**NOTE**: This repository is a downstream fork of [LunarG/VulkanTools](https://github.com/LunarG/VulkanTools)
+which is periodically rebased.
+
+Issues related to the `VK_LAYER_KHRONOS_json_gen` layer should be reported as issues in this repository.
+All other issues should be reported to the upstream repository.
+
+## CI Build Status
+| Build Status |
+|:------------|
+| [![Build Status](https://github.com/KhronosGroup/VulkanTools-ForSC/actions/workflows/ci_build.yml/badge.svg?branch=sc_main)](https://github.com/KhronosGroup/VulkanTools-ForSC/actions) |
+
 ## Contributing
 
 If you intend to contribute, the preferred work flow is for you to develop your contribution
@@ -27,7 +45,7 @@ Please see the [CONTRIBUTING](CONTRIBUTING.md) file in this repository for more 
 
 ## Version Tagging Scheme
 
-Updates to the `LunarG-VulkanTools` repository which correspond to a new Vulkan specification release are tagged using the following format: `v<`_`version`_`>` (e.g., `v1.1.96`).
+Updates to the `VulkanTools-ForSC` repository which correspond to a new Vulkan specification release are tagged using the following format: `v<`_`version`_`>` (e.g., `v1.1.96`).
 
 **Note**: Marked version releases have undergone thorough testing but do not imply the same quality level as SDK tags. SDK tags follow the `sdk-<`_`version`_`>.<`_`patch`_`>` format (e.g., `sdk-1.1.92.0`).
 
@@ -38,3 +56,5 @@ This work is released as open source under a [Apache-style license](LICENSE.txt)
 
 ## Acknowledgements
 While this project has been developed primarily by LunarG, Inc., there are many other companies and individuals making this possible: Valve Corporation, funding project development.
+
+The VK_LAYER_Khronos_json_gen layer has been contributed by NVIDIA CORPORATION.

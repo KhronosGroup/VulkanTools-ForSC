@@ -36,6 +36,22 @@ layersvt/monitor.cpp - utility layer that will display an applications FPS in th
 ### Device Simulation
 layersvt/device_simulation.cpp (name='VK_LAYER_LUNARG_device_simulation') - A utility layer to simulate a device with different capabilities than the actual hardware in the system.  See device_simulation.md for details.
 
+### Json Gen Layer
+layersvt/vulkan_json_layer.hpp (name='VK_LAYER_KHRONOS_json_gen') - A utility layer to capture and save
+pipeline state and shaders, and object counts of running applications.
+
+The pipeline state is serialized in a json file and the corresponding SPIR-V modules are also saved to file.
+Once serialized, the pipeline state can be compiled offline by a Vulkan SC "Pipeline Cache Compiler" and used in a Vulkan SC
+variant of the same application.
+
+This layer implements the `VK_EXT_pipeline_properties` Vulkan extension which can be used by the application
+to query the identifier assigned to a particular pipeline.
+This identifier can be stored with the application state and used to load the pipeline in the Vulkan SC application.
+
+This layer also records information which can be used to create a `VkDeviceObjectReservationCreateInfo` for a Vulkan SC application.
+
+Documentation for the Json Generation Layer tests can be found in [jsonGenLayerTests/README.md](../jsonGenLayerTests/README.md).
+
 ## Using Layers
 
 1. Build VK loader using normal steps (cmake and make)

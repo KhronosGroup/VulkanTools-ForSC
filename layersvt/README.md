@@ -40,7 +40,7 @@ layersvt/device_simulation.cpp (name='VK_LAYER_LUNARG_device_simulation') - A ut
 layersvt/vulkan_json_layer.hpp (name='VK_LAYER_KHRONOS_json_gen') - A utility layer to capture and save
 pipeline state and shaders, and object counts of running applications.
 
-More details on the usage of this layer can be found in [here](./json_layer_README.md)
+More details on the usage of this layer can be found in [here](./json_layer_README.md).
 
 ## Using Layers
 

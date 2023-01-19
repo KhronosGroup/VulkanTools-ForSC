@@ -26,7 +26,7 @@ This layer also records information which can be used to create a `VkDeviceObjec
 ### Enabling the layer
 
 This layer needs to be enabled in a standard way a Khronos layer is enabled. More details on enabling the layer can be found 
-[here](https://github.com/KhronosGroup/Vulkan-ValidationLayers/blob/master/LAYER_CONFIGURATION.md)
+[here](https://github.com/KhronosGroup/Vulkan-ValidationLayers/blob/master/LAYER_CONFIGURATION.md).
 
 ### Usage
 This layer uses an environment variable called "VK_JSON_FILE_PATH", which is the location where the JSON/SPIR-V/hpp artifacts are dumped.

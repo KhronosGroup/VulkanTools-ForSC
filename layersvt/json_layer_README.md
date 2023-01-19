@@ -13,7 +13,7 @@ to query the identifier assigned to a particular pipeline.
 This identifier can be stored with the application state and used to load the pipeline in the Vulkan SC application.
 
 This layer uses generated code in [vulkan_json_data.hpp](./vulkan_json_data.hpp) to dump the structures in the JSON format.
-To re-generate this file, please follow instructions in [here](https://github.com/KhronosGroup/VulkanSC-Docs/wiki/JSON-schema)
+To re-generate this file, please follow instructions in [here](https://github.com/KhronosGroup/VulkanSC-Docs/wiki/JSON-schema).
 
 This layer also records information which can be used to create a `VkDeviceObjectReservationCreateInfo` for a Vulkan SC application.
 

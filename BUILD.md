@@ -231,6 +231,50 @@ To use, simply push it to the device and run it.  The resulting json file will b
 ```
 /sdcard/Android/<output>.json
 ```
+### Linux ARM64 build on x86 Ubuntu Host
+#### Host System Requirements
+Ubuntu 20.04 AMD64 (Host) and Ubuntu 20.04 ARM64 (target) have been tested with this repo.
+
+
+- Run the following instructions on the Host machine.
+    - Download Ubuntu 20.04 ARM64 file system image [here](http://cloud-images.ubuntu.com/focal/current/) and extract it to the Host machine.
+- Install and Setup Qemu:
+```
+# Install the Qemu on Ubuntu Host
+sudo apt-get install qemu-user-static
+
+# Copy qemu-aarch64-static and qemu-arm-static to target file system
+export TARGET_ROOFS=<Root directory of target file system>
+sudo -E cp /usr/bin/qemu-aarch64-static ${TARGET_ROOFS}/usr/bin/
+sudo -E cp /usr/bin/qemu-arm-static ${TARGET_ROOFS}/usr/bin/
+
+# Mount the chroot points
+sudo -E mount /sys  ${TARGET_ROOFS}/sys -o bind
+sudo -E mount /proc ${TARGET_ROOFS}/proc -o bind
+sudo -E mount /dev  ${TARGET_ROOFS}/dev -o bind
+
+# Setup resolv.conf for DNS server
+sudo -E mv ${TARGET_ROOFS}/etc/resolv.conf ${TARGET_ROOFS}/etc/resolv.conf.saved
+sudo -E cp /etc/resolv.conf ${TARGET_ROOFS}/etc
+
+# Run chroot to target system sandbox
+sudo LC_ALL=C chroot . /bin/bash
+```
+#### Build on Target System
+- Run the following instructions on the Target machine.
+    - Install the dependencies following [Ubuntu System Requirements](BUILD.md#ubuntu-system-requirements).
+- Build this repo on target system:
+```
+git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
+cd VulkanTools
+mkdir build
+./update_external_sources.sh
+cd build
+../scripts/update_deps.py
+cmake -C helper.cmake ..
+cmake --build . --parallel
+```
+
 
 ## The VulkanTools repository
 

@@ -62,6 +62,36 @@ additional Qt dependencies:
 ```
 sudo apt-get install qt5-default
 ```
+#### Linux ARM64 Additional System Requirements
+This repo also supports the Linux ARM64 build.
+Ubuntu 20.04 AMD64 (Host) and Ubuntu 20.04 ARM64 (target) have been tested with this repo.
+
+- Run the following instructions on the Host machine.
+    - Download Ubuntu 20.04 ARM64 file system image [here](http://cloud-images.ubuntu.com/focal/current/) and extract it to the Host machine.
+- Install and Setup Qemu:
+```
+# Install the Qemu on Ubuntu Host
+sudo apt-get install qemu-user-static
+
+# Copy qemu-aarch64-static and qemu-arm-static to target file system
+export TARGET_ROOFS=<Root directory of target file system>
+sudo -E cp /usr/bin/qemu-aarch64-static ${TARGET_ROOFS}/usr/bin/
+sudo -E cp /usr/bin/qemu-arm-static ${TARGET_ROOFS}/usr/bin/
+
+# Mount the chroot points
+sudo -E mount /sys  ${TARGET_ROOFS}/sys -o bind
+sudo -E mount /proc ${TARGET_ROOFS}/proc -o bind
+sudo -E mount /dev  ${TARGET_ROOFS}/dev -o bind
+
+# Setup resolv.conf for DNS server
+sudo -E mv ${TARGET_ROOFS}/etc/resolv.conf ${TARGET_ROOFS}/etc/resolv.conf.saved
+sudo -E cp /etc/resolv.conf ${TARGET_ROOFS}/etc
+```
+- Log in to Linux ARM64 sandbox:
+```
+# Run chroot to target system sandbox
+sudo LC_ALL=C chroot ${TARGET_ROOFS} /bin/bash
+```
 
 ### Fedora Core System Requirements
 
@@ -176,7 +206,7 @@ ctest -C Debug --output-on-failure --parallel 16
 ctest -C Release  --output-on-failure --parallel 16
 ```
 
-### Linux and macOS Build
+### Linux AMD64, Linux ARM64 and macOS Build
 ```
     git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
     cd VulkanTools
@@ -187,6 +217,7 @@ ctest -C Release  --output-on-failure --parallel 16
     cmake -C helper.cmake ..
     cmake --build . --parallel
 ```
+For Linux ARM64 build, run the above commands in the [chroot sandbox environment](BUILD.md#linux-arm64-additional-system-requirements).
 
 ### Linux and macOS Unit Tests
 

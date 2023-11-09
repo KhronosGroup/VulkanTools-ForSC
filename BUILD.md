@@ -207,7 +207,6 @@ ctest -C Release  --output-on-failure --parallel 16
 ```
 
 ### Linux AMD64, Linux ARM64 and macOS Build
-For Linux ARM64 build, run the following commands in [chroot sandbox environment](BUILD.md#linux-arm64-additional-system-requirements).
 ```
     git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
     cd VulkanTools
@@ -218,6 +217,7 @@ For Linux ARM64 build, run the following commands in [chroot sandbox environment
     cmake -C helper.cmake ..
     cmake --build . --parallel
 ```
+For Linux ARM64 build, run the above commands in the [chroot sandbox environment](BUILD.md#linux-arm64-additional-system-requirements).
 
 ### Linux and macOS Unit Tests
 
@@ -262,7 +262,6 @@ To use, simply push it to the device and run it.  The resulting json file will b
 ```
 /sdcard/Android/<output>.json
 ```
-
 
 ## The VulkanTools repository
 

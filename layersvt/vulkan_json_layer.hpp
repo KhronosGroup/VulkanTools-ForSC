@@ -102,6 +102,25 @@ class PipelineData {
         }
     }
 
+    void destroy(VkDevice device)
+    {
+        if (m_privateDataSlot != VK_NULL_HANDLE) {
+            if (m_usePrivateDataExtension) {
+                device_dispatch_table(device)->DestroyPrivateDataSlotEXT(device, m_privateDataSlot, nullptr);
+            } else {
+                device_dispatch_table(device)->DestroyPrivateDataSlot(device, m_privateDataSlot, nullptr);
+            }
+        }
+
+        if (m_privateDataUuidSlot != VK_NULL_HANDLE) {
+            if (m_usePrivateDataExtension) {
+                device_dispatch_table(device)->DestroyPrivateDataSlotEXT(device, m_privateDataUuidSlot, nullptr);
+            } else {
+                device_dispatch_table(device)->DestroyPrivateDataSlot(device, m_privateDataUuidSlot, nullptr);
+            }
+        }
+    }
+
     VkResult createAndSetPrivateData(VkDevice &device, VkObjectType objectType, uint64_t objectHandle, std::string *data)
     {
         VkResult result = VK_SUCCESS;

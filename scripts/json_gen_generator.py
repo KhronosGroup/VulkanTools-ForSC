@@ -125,11 +125,11 @@ VK_LAYER_EXPORT VKAPI_ATTR {funcReturn} VKAPI_CALL {funcName}({funcTypedParams})
 @foreach function where('{funcName}' == 'vkDestroyDevice')
 VK_LAYER_EXPORT VKAPI_ATTR {funcReturn} VKAPI_CALL {funcName}({funcTypedParams})
 {{
+    {funcStateTrackingCode}
     // Destroy the dispatch table
     dispatch_key key = get_dispatch_key({funcDispatchParam});
     device_dispatch_table({funcDispatchParam})->DestroyDevice({funcNamedParams});
     destroy_device_dispatch_table(key);
-    {funcStateTrackingCode}
 }}
 @end function
 
@@ -376,6 +376,9 @@ JSON_INTERCEPT_API = {
         '\t    devCreateInfoCopy.pNext = &privDataFeats;\n'
         '\t}\n'
         '\tvk_json::s_pipe.setDevice(pCreateInfo);\n'
+    ,
+    'vkDestroyDevice':
+        'vk_json::s_pipe.destroy(device);'
     ,
     'vkAllocateCommandBuffers':
         'if (pAllocateInfo) {\n'

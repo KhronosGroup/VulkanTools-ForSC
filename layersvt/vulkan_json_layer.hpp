@@ -289,7 +289,15 @@ class PipelineData {
             pPrivateDataSlotCreateInfo.sType = VK_STRUCTURE_TYPE_PRIVATE_DATA_SLOT_CREATE_INFO;
             pPrivateDataSlotCreateInfo.pNext = NULL;
             pPrivateDataSlotCreateInfo.flags = 0;
-            result = device_dispatch_table(device)->CreatePrivateDataSlot(device, &pPrivateDataSlotCreateInfo, NULL, &m_privateDataUuidSlot);
+
+            if (m_usePrivateDataExtension) {
+                result = device_dispatch_table(device)->CreatePrivateDataSlotEXT(device, &pPrivateDataSlotCreateInfo,
+                                                                                 NULL, &m_privateDataUuidSlot);
+            } else {
+                result = device_dispatch_table(device)->CreatePrivateDataSlot(device, &pPrivateDataSlotCreateInfo,
+                                                                              NULL, &m_privateDataUuidSlot);
+            }
+
             if (result != VK_SUCCESS) {
                 return result;
             }
@@ -301,8 +309,13 @@ class PipelineData {
         }
         m_uuidAllocList.push_back(uuidMem);
 
-        result = device_dispatch_table(device)->SetPrivateData(device, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(pPipeline),
-                                                               m_privateDataUuidSlot, reinterpret_cast<uint64_t>(uuidMem));
+        if (m_usePrivateDataExtension) {
+            result = device_dispatch_table(device)->SetPrivateDataEXT(device, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(pPipeline),
+                                                                      m_privateDataUuidSlot, reinterpret_cast<uint64_t>(uuidMem));
+        } else {
+            result = device_dispatch_table(device)->SetPrivateData(device, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(pPipeline),
+                                                                   m_privateDataUuidSlot, reinterpret_cast<uint64_t>(uuidMem));
+        }
 
         return result;
     }
@@ -310,8 +323,14 @@ class PipelineData {
     void getPipelineUUID(VkDevice &device, VkPipeline pPipeline, uint8_t uuid[VK_UUID_SIZE])
     {
         uint64_t pData;
-        device_dispatch_table(device)->GetPrivateData(device, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(pPipeline),
-                                                      m_privateDataUuidSlot, &pData);
+
+        if (m_usePrivateDataExtension) {
+            device_dispatch_table(device)->GetPrivateDataEXT(device, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(pPipeline),
+                                                             m_privateDataUuidSlot, &pData);
+        } else {
+            device_dispatch_table(device)->GetPrivateData(device, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(pPipeline),
+                                                          m_privateDataUuidSlot, &pData);
+        }
 
         uint8_t* uuidMem = reinterpret_cast<uint8_t *>(pData);
         for (int i=0; i < VK_UUID_SIZE; i++) {

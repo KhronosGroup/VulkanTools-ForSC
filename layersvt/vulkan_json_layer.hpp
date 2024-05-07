@@ -905,11 +905,12 @@ class PipelineData {
         char* p = m_exeName + (strnlen(m_exeName, MAX_NAME_SIZE) - 1);
         int writePos = 0;
 
-        while (*p-- != '.')
-            ;
-        while (*p != '\\') m_exeName[writePos++] = *p--;
+        while (*p != '.')
+            --p;
+        while (*p != '\\')
+            --p;
+        for (++p; *p != '.'; ++p) m_exeName[writePos++] = *p;
         m_exeName[writePos] = 0;
-        _strrev(m_exeName);
 #endif
 
 #ifdef __linux__

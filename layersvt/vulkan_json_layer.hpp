@@ -28,6 +28,16 @@
 #define OPENSSL_API_COMPAT 0x10100000L
 #include "openssl/md5.h"
 
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+
+#if defined(__GNUC__) && __GNUC__ >= 4
+#define EXPORT_FUNCTION __attribute__((visibility("default")))
+#elif defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590)
+#define EXPORT_FUNCTION __attribute__((visibility("default")))
+#else
+#define EXPORT_FUNCTION
+#endif
+
 namespace vk_json 
 {
 
@@ -1036,7 +1046,7 @@ void set_layer_supported_features(VkPhysicalDeviceFeatures2 *pFeatures)
 
 }
 
-VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkGetPipelinePropertiesEXT(VkDevice device, const VkPipelineInfoEXT* pPipelineInfo, VkBaseOutStructure* pPipelineProperties)
+EXPORT_FUNCTION VKAPI_ATTR VkResult VKAPI_CALL vkGetPipelinePropertiesEXT(VkDevice device, const VkPipelineInfoEXT* pPipelineInfo, VkBaseOutStructure* pPipelineProperties)
 {
 
     VkResult result = VK_SUCCESS;

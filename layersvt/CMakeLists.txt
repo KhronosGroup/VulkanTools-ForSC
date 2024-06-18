@@ -176,7 +176,7 @@ if(BUILD_APIDUMP)
         generate_api_video_text_h generate_api_video_html_h generate_api_video_json_h)
 
     run_vulkantools_vk_xml_generate(json_gen_generator.py json_gen.cpp)
-    add_vk_layer(json_gen json_gen.cpp vk_layer_table.cpp ../vku/vk_layer_settings.cpp ../vku/vk_layer_settings.h)
+    add_vk_layer(json_gen json_gen.cpp vk_layer_table.cpp vk_layer_table.h VkLayer_json_gen.def VkLayer_json_gen.json.in ../scripts/json_gen_generator.py)
 endif ()
 
 if (NOT APPLE)

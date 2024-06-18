@@ -71,6 +71,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows" OR
     CMAKE_SYSTEM_NAME MATCHES "BSD")
 
     option(BUILD_APIDUMP "Build api_dump layer" ON)
+    option(BUILD_VKJSON "Build json_gen layer" ON)
     option(BUILD_MONITOR "Build monitor layer" ON)
     option(BUILD_SCREENSHOT "Build screenshot layer" ON)
     option(BUILD_VIA "Build via" ON)
@@ -121,7 +122,7 @@ if(BUILD_JSON_GEN_LAYER_TESTS)
     add_subdirectory(jsonGenLayerTests)
 endif()
 
-if(BUILD_APIDUMP OR BUILD_MONITOR OR BUILD_SCREENSHOT)
+if(BUILD_APIDUMP OR BUILD_MONITOR OR BUILD_SCREENSHOT OR BUILD_VKJSON)
     add_subdirectory(layersvt)
 endif()
 

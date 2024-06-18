@@ -522,7 +522,7 @@ if __name__ == '__main__':
     from tool_helper_file_generator import ToolHelperFileOutputGenerator, ToolHelperFileOutputGeneratorOptions
     from api_dump_generator import ApiDumpGeneratorOptions, ApiDumpOutputGenerator, COMMON_CODEGEN, TEXT_CODEGEN, HTML_CODEGEN, JSON_CODEGEN
     from json_gen_generator import JSONGenGeneratorOptions, JSONGenOutputGenerator, COMMON_CODEGEN_JSON_GEN
-    from layer_factory_generator import LayerFactoryGeneratorOptions, LayerFactoryOutputGenerator
+    #from layer_factory_generator import LayerFactoryGeneratorOptions, LayerFactoryOutputGenerator
     from vkconventions import VulkanConventions
 
     # This splits arguments which are space-separated lists

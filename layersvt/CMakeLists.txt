@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.10.2)
-
 file(GLOB IMAGES
    "${PROJECT_SOURCE_DIR}/layersvt/images/*"
 )
@@ -36,19 +34,27 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
        # TODO Add Metal Support
        add_definitions(-DVK_USE_PLATFORM_METAL_EXT)
     endif()
+elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    if (BUILD_METAL_SUPPORT)
+       # TODO Add Metal Support
+       add_definitions(-DVK_USE_PLATFORM_METAL_EXT)
+    endif()
 else()
     message(FATAL_ERROR "Unsupported Platform!")
 endif()
 
-add_definitions(-DVK_ENABLE_BETA_EXTENSIONS)
-
 if (BUILD_APIDUMP)
     add_custom_target( generate_api_cpp DEPENDS api_dump.cpp )
-    add_custom_target( generate_api_h DEPENDS api_dump_text.h )
+    add_custom_target( generate_api_text_h DEPENDS api_dump_text.h )
     add_custom_target( generate_api_html_h DEPENDS api_dump_html.h )
-    set_target_properties(generate_api_cpp generate_api_h generate_api_html_h PROPERTIES FOLDER ${VULKANTOOLS_TARGET_FOLDER})
     add_custom_target( generate_api_json_h DEPENDS api_dump_json.h )
-    set_target_properties(generate_api_cpp generate_api_h generate_api_json_h PROPERTIES FOLDER ${VULKANTOOLS_TARGET_FOLDER})
+    add_custom_target( generate_api_video_text_h DEPENDS api_dump_video_text.h )
+    add_custom_target( generate_api_video_html_h DEPENDS api_dump_video_html.h )
+    add_custom_target( generate_api_video_json_h DEPENDS api_dump_video_json.h )
+
+    set_target_properties(generate_api_cpp generate_api_text_h generate_api_html_h generate_api_json_h
+        generate_api_video_text_h generate_api_video_html_h generate_api_video_json_h
+         PROPERTIES FOLDER VkLayer_api_dump/${VULKANTOOLS_TARGET_FOLDER})
 endif()
 
 if (NOT APPLE)
@@ -80,12 +86,14 @@ if (WIN32)
             VERBATIM
         )
         add_library(VkLayer_${target} SHARED ${ARGN} VkLayer_${target}.def)
-        target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY})
-        if(BUILD_APIDUMP)
-            add_dependencies(VkLayer_${target} generate_api_cpp generate_api_h generate_api_html_h)
-            add_dependencies(VkLayer_${target} generate_api_cpp generate_api_h generate_api_json_h)
-        endif()
-        set_target_properties(copy-${target}-def-file PROPERTIES FOLDER ${VULKANTOOLS_TARGET_FOLDER})
+        target_link_Libraries(VkLayer_${target} Vulkan::Headers Vulkan::UtilityHeaders Vulkan::LayerSettings ${VkLayer_utils_LIBRARY})
+        set_target_properties(VkLayer_${target} PROPERTIES
+            CXX_STANDARD 17
+            CXX_STANDARD_REQUIRED ON
+            CXX_EXTENSIONS OFF
+        )
+        set_target_properties(copy-${target}-def-file PROPERTIES FOLDER "VkLayer_${target}")
+        set_target_properties(VkLayer_${target} PROPERTIES FOLDER "VkLayer_${target}")
         set(OPENSSL_USE_STATIC_LIBS TRUE)
         find_package(OpenSSL REQUIRED)
         target_link_libraries(VkLayer_${target} OpenSSL::SSL)
@@ -94,12 +102,13 @@ if (WIN32)
 else()
     macro(add_vk_layer target)
         add_library(VkLayer_${target} SHARED ${ARGN})
-        target_link_Libraries(VkLayer_${target} ${VkLayer_utils_LIBRARY})
-        add_dependencies(VkLayer_${target} generate_api_cpp generate_api_h generate_api_html_h)
-        add_dependencies(VkLayer_${target} generate_api_cpp generate_api_h generate_api_json_h)
+        target_link_Libraries(VkLayer_${target} Vulkan::Headers Vulkan::UtilityHeaders Vulkan::LayerSettings ${VkLayer_utils_LIBRARY})
         if (NOT APPLE)
             set_target_properties(VkLayer_${target} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
         endif ()
+        if (ANDROID)
+            target_link_Libraries(VkLayer_${target} log)
+        endif()
         install(TARGETS VkLayer_${target} DESTINATION ${CMAKE_INSTALL_LIBDIR})
         set(OPENSSL_USE_STATIC_LIBS TRUE)
         find_package(OpenSSL REQUIRED)
@@ -113,16 +122,12 @@ if (APPLE)
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}
         ${CMAKE_BINARY_DIR}
-        ${Vulkan-ValidationLayers_INCLUDE_DIR}
-        ${JSONCPP_INCLUDE_DIR}
     )
 else ()
     include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}
         ${CMAKE_BINARY_DIR}
-        ${Vulkan-ValidationLayers_INCLUDE_DIR}
-        ${JSONCPP_INCLUDE_DIR}
     )
 endif()
 
@@ -130,10 +135,31 @@ if (WIN32)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_CRT_SECURE_NO_WARNINGS /bigobj")
     set (CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -D_CRT_SECURE_NO_WARNINGS /bigobj")
 else()
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wpointer-arith")
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wpointer-arith")
 endif()
+
+find_package(Python3 REQUIRED)
+
+set(VULKANTOOLS_SCRIPTS_DIR "${VULKAN_TOOLS_SOURCE_DIR}/scripts")
+set(VULKAN_REGISTRY "${VULKAN_HEADERS_INSTALL_DIR}/${CMAKE_INSTALL_DATADIR}/vulkan/registry")
+
+# Define macro used for building vk.xml generated files
+function(run_vulkantools_vk_xml_generate dependency output)
+    add_custom_command(OUTPUT ${output}
+        COMMAND Python3::Interpreter -B ${VULKANTOOLS_SCRIPTS_DIR}/vt_genvk.py -registry ${VULKAN_REGISTRY}/vk.xml -scripts ${VULKAN_REGISTRY} ${output}
+        DEPENDS ${VULKAN_REGISTRY}/vk.xml ${VULKAN_REGISTRY}/generator.py ${VULKANTOOLS_SCRIPTS_DIR}/${dependency} ${VULKANTOOLS_SCRIPTS_DIR}/vt_genvk.py ${VULKAN_REGISTRY}/reg.py
+    )
+endfunction()
+
+# Define macro used for building video.xml generated files
+function(run_vulkantools_video_xml_generate dependency output)
+    add_custom_command(OUTPUT ${output}
+        COMMAND Python3::Interpreter -B ${VULKANTOOLS_SCRIPTS_DIR}/vt_genvk.py -registry ${VULKAN_REGISTRY}/video.xml -scripts ${VULKAN_REGISTRY} ${output}
+        DEPENDS ${VULKAN_REGISTRY}/video.xml ${VULKAN_REGISTRY}/generator.py ${VULKANTOOLS_SCRIPTS_DIR}/${dependency} ${VULKANTOOLS_SCRIPTS_DIR}/vt_genvk.py ${VULKAN_REGISTRY}/reg.py
+    )
+endfunction()
 
 #VulkanTools layers
 if(BUILD_APIDUMP)
@@ -141,24 +167,31 @@ if(BUILD_APIDUMP)
     run_vulkantools_vk_xml_generate(api_dump_generator.py api_dump_text.h)
     run_vulkantools_vk_xml_generate(api_dump_generator.py api_dump_html.h)
     run_vulkantools_vk_xml_generate(api_dump_generator.py api_dump_json.h)
+    run_vulkantools_video_xml_generate(api_dump_generator.py api_dump_video_text.h)
+    run_vulkantools_video_xml_generate(api_dump_generator.py api_dump_video_html.h)
+    run_vulkantools_video_xml_generate(api_dump_generator.py api_dump_video_json.h)
+
+    add_vk_layer(api_dump api_dump.cpp api_dump.h vk_layer_table.cpp vk_layer_table.h VkLayer_api_dump.def api_dump_layer.md VkLayer_api_dump.json.in ../scripts/api_dump_generator.py)
+    add_dependencies(VkLayer_api_dump generate_api_cpp generate_api_text_h generate_api_html_h generate_api_json_h
+        generate_api_video_text_h generate_api_video_html_h generate_api_video_json_h)
+
     run_vulkantools_vk_xml_generate(json_gen_generator.py json_gen.cpp)
+    add_vk_layer(json_gen json_gen.cpp vk_layer_table.cpp ../vku/vk_layer_settings.cpp ../vku/vk_layer_settings.h)
 endif ()
 
 if (NOT APPLE)
     if(BUILD_MONITOR)
-        add_vk_layer(monitor monitor.cpp vk_layer_table.cpp ../vku/vk_layer_settings.cpp ../vku/vk_layer_settings.h)
+        add_vk_layer(monitor monitor.cpp vk_layer_table.cpp vk_layer_table.h VKLayer_monitor.def monitor_layer.md VkLayer_monitor.json.in)
     endif ()
     if(BUILD_SCREENSHOT)
-        add_vk_layer(screenshot screenshot.cpp screenshot_parsing.h screenshot_parsing.cpp vk_layer_table.cpp ../vku/vk_layer_settings.cpp ../vku/vk_layer_settings.h)
+        add_vk_layer(screenshot screenshot.cpp screenshot_parsing.h screenshot_parsing.cpp screenshot_parsing.h vk_layer_table.cpp vk_layer_table.h VkLayer_screenshot.def screenshot_layer.md VkLayer_screenshot.json.in)
     endif ()
 endif ()
 
-if(BUILD_APIDUMP)
-    add_vk_layer(api_dump api_dump.cpp vk_layer_table.cpp ../vku/vk_layer_settings.cpp ../vku/vk_layer_settings.h)
-    add_vk_layer(json_gen json_gen.cpp vk_layer_table.cpp ../vku/vk_layer_settings.cpp ../vku/vk_layer_settings.h)
-endif ()
-
-# json file creation
+if (ANDROID)
+    message(DEBUG "Android doesn't use json manifests.")
+    return()
+endif()
 
 # The output file needs Unix "/" separators or Windows "\" separators
 # Windows paths need to start with ".\", Unix paths do not.
@@ -172,7 +205,7 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/generator.cmake" "configure_file(\"\${IN
 foreach(TARGET_NAME ${TARGET_NAMES})
     set(CONFIG_DEFINES
         -DINPUT_FILE="${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_NAME}.json.in"
-        -DVK_VERSION="${VulkanHeaders_VERSION_MAJOR}.${VulkanHeaders_VERSION_MINOR}.${VulkanHeaders_VERSION_PATCH}"
+        -DVK_VERSION="${VulkanHeaders_VERSION}"
     )
     # Get the needed properties from that target
     set(CONFIG_DEFINES ${CONFIG_DEFINES}
@@ -181,6 +214,7 @@ foreach(TARGET_NAME ${TARGET_NAMES})
         )
 
     add_custom_target(${TARGET_NAME}-json ALL COMMAND ${CMAKE_COMMAND} ${CONFIG_DEFINES} -P "${CMAKE_CURRENT_BINARY_DIR}/generator.cmake")
+    set_target_properties(${TARGET_NAME}-json PROPERTIES FOLDER "${TARGET_NAME}")
 
     # Add target for JSON file install.
     if(NOT WIN32)
@@ -197,3 +231,9 @@ foreach(TARGET_NAME ${TARGET_NAMES})
     endif()
 
 endforeach()
+
+if (NOT ANDROID)
+    if (BUILD_TESTS_DEBUG)
+        add_subdirectory(test)
+    endif ()
+endif ()

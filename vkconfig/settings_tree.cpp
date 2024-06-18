@@ -52,21 +52,6 @@ static const char *TOOLTIP_ORDER =
 
 SettingsTreeManager::SettingsTreeManager() : tree(nullptr) {}
 
-bool SettingsTreeManager::UseBuiltinValidationUI(Parameter &parameter) const {
-    if (parameter.key != "VK_LAYER_KHRONOS_validation") {
-        return false;
-    }
-
-    for (std::size_t j = 0, m = parameter.settings.size(); j < m; ++j) {
-        const SettingData *setting_data = parameter.settings[j];
-        if (setting_data->key == "validation_control") {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 void SettingsTreeManager::CreateGUI(QTreeWidget *build_tree) {
     assert(build_tree);
 
@@ -152,7 +137,7 @@ void SettingsTreeManager::CreateGUI(QTreeWidget *build_tree) {
                 this->connect(presets_combobox, SIGNAL(itemChanged()), this, SLOT(OnPresetChanged()));
             }
 
-            if (UseBuiltinValidationUI(parameter)) {
+            if (UseBuiltinValidationSettings(parameter)) {
                 BuildValidationTree(layer_item, parameter);
             } else {
                 BuildGenericTree(layer_item, parameter);
@@ -293,13 +278,17 @@ static bool IsBuiltinValidationSetting(const Parameter &parameter, const std::st
     std::vector<std::string> keys;
     keys.push_back("enables");
     keys.push_back("disables");
-    keys.push_back("printf_to_stdout");
-    keys.push_back("printf_verbose");
-    keys.push_back("printf_buffer_size");
-    keys.push_back("gpuav_buffer_oob");
-    keys.push_back("validate_draw_indirect");
-    keys.push_back("vma_linear_output");
-    keys.push_back("fine_grained_locking");
+
+    if (parameter.api_version.GetPatch() < 242) {
+        keys.push_back("printf_to_stdout");
+        keys.push_back("printf_verbose");
+        keys.push_back("printf_buffer_size");
+        keys.push_back("gpuav_buffer_oob");
+        keys.push_back("warn_on_robust_oob");
+        keys.push_back("validate_draw_indirect");
+        keys.push_back("vma_linear_output");
+        keys.push_back("fine_grained_locking");
+    }
 
     return IsStringFound(keys, key);
 }
@@ -366,8 +355,6 @@ void SettingsTreeManager::BuildTreeItem(QTreeWidgetItem *parent, Parameter &para
 
             WidgetSettingEnum *enum_widget = new WidgetSettingEnum(tree, item, meta, parameter.settings);
             this->connect(enum_widget, SIGNAL(itemChanged()), this, SLOT(OnSettingChanged()));
-
-            SettingDataEnum *data = FindSetting<SettingDataEnum>(parameter.settings, meta.key.c_str());
 
             for (std::size_t i = 0, n = meta.enum_values.size(); i < n; ++i) {
                 const SettingEnumValue &value = meta.enum_values[i];

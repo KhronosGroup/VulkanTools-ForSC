@@ -10,7 +10,7 @@ supplementing the loader and validation layer core components found at https://g
 
 Windows 7+ with additional required software packages:
 
-- Microsoft Visual Studio 2017 or 2019: it is possible that lesser/older versions may work, but not guaranteed.
+- Microsoft Visual Studio 2017, 2019 or 2022: it is possible that lesser/older versions may work, but not guaranteed.
 - [CMake 3.10.2](https://cmake.org/files/v3.10/cmake-3.10.2-win64-x64.zip) is recommended.
   - Tell the installer to "Add CMake to the system `PATH`" environment variable.
 - Python 3 (from https://www.python.org/downloads).  Notes:
@@ -123,10 +123,6 @@ macOS 10.11.4 have been tested with this repo.
 - [CMake 3.10.2](https://cmake.org/files/v3.10/cmake-3.10.2-Darwin-x86_64.tar.gz) is recommended.
 
 Setup Homebrew and components
-- Follow instructions on [brew.sh](http://brew.sh) to get homebrew installed.
-```
-/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-```
 
 - Ensure Homebrew is at the beginning of your PATH:
 ```
@@ -149,30 +145,6 @@ cmake -DOPENSSL_CRYPTO_LIBRARY="/usr/local/opt/openssl@3/lib/libcrypto.dylib" \
     -C helper.cmake ..
 ```
 
-### Android Additional System Requirements
-Install the required tools for Linux and Windows covered above, then add the
-following.
-
-#### Android Studio
-- Install 2.1 or later version of [Android Studio](https://developer.android.com/studio)
-- From the "Welcome to Android Studio" splash screen, add the following components using Configure > SDK Manager:
-  - SDK Tools > Android NDK
-
-#### Add NDK to path
-
-On Windows:
-```
-set PATH=%LOCALAPPDATA%\Android\sdk\ndk-bundle;%PATH%
-```
-On Linux:
-```
-export PATH=$HOME/Android/Sdk/ndk-bundle:$PATH
-```
-On macOS:
-```
-export PATH=$HOME/Library/Android/sdk/ndk-bundle:$PATH
-```
-
 ## Getting Started Build Instructions
 
 ### 64-bit Windows Build 
@@ -180,7 +152,6 @@ export PATH=$HOME/Library/Android/sdk/ndk-bundle:$PATH
     git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
     cd VulkanTools-ForSC
     mkdir build
-    .\update_external_sources.bat
     cd build
     ..\scripts\update_deps.py --arch x64
     cmake -A x64 -C helper.cmake ..
@@ -192,7 +163,6 @@ export PATH=$HOME/Library/Android/sdk/ndk-bundle:$PATH
     git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
     cd VulkanTools-ForSC
     mkdir build
-     .\update_external_sources.bat
     cd build
     ..\scripts\update_deps.py --arch Win32
     cmake -A Win32 -C helper.cmake ..
@@ -211,7 +181,6 @@ ctest -C Release  --output-on-failure --parallel 16
     git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
     cd VulkanTools
     mkdir build
-    ./update_external_sources.sh
     cd build
     ../scripts/update_deps.py
     cmake -C helper.cmake ..
@@ -226,46 +195,12 @@ ctest --parallel 8 --output-on-failure
 ```
 
 ### Android Build
-Use the following to ensure the Android build works.
 
-#### Android Build from Windows
-From Developer Command Prompt for VS2015:
-```
-cd build-android
-update_external_sources_android.bat
-android-generate.bat
-ndk-build
-```
-
-#### Android Build from Linux
-From your terminal:
-```
-cd build-android
-./update_external_sources_android.sh
-./android-generate.sh
-ndk-build -j $(nproc)
-```
-
-#### Android Build from macOS 
-From your terminal:
-```
-cd build-android
-./update_external_sources_android.sh
-./android-generate.sh
-ndk-build -j $(sysctl -n hw.ncpu)
-```
-
-#### vkjson_info
-Currently vkjson_info is only available as an executable for devices with root access.
-
-To use, simply push it to the device and run it.  The resulting json file will be found in:
-```
-/sdcard/Android/<output>.json
-```
+TODO: Update android build documentation with new CMake build.
 
 ## The VulkanTools repository
 
-### Cloning the repository and updaing subcomponents
+### Cloning the repository and updating subcomponents
 
 To create your local git repository of VulkanTools:
 ```
@@ -276,46 +211,7 @@ git clone --recurse-submodules git@github.com:KhronosGroup/VulkanTools-ForSC.git
 
 # Enter the folder containing the cloned source
 cd VulkanTools-ForSC
-
-# This will perform some initialization and ensure subcomponents are built:
-./update_external_sources.sh    # linux
-./update_external_sources.bat   # windows
 ```
-
-### Updating the Repository After a Pull
-
-The VulkanTools repository contains a submodule named jsoncpp. You may occasionally have to update the source in that submodules.
-You will know this needs to be performed when you perform a pull, and you check the status of your tree with `git status` and something similar to the following shows:
-
-```
-(master *)] $ git status
-On branch master
-Your branch is up-to-date with 'origin/master'.
-
-Changes not staged for commit:
-  (use "git add <file>..." to update what will be committed)
-  (use "git checkout -- <file>..." to discard changes in working directory)
-
-  modified:   submodules/jsoncpp (new commits)
-
-no changes added to commit (use "git add" and/or "git commit -a")
-```
-
-To resolve this, simply update the sub-module using:
-
-```
-git submodule update --recursive
-```
-
-Then, update the external sources as before:
-
-```
-# This will perform required subcomponent operations.
-./update_external_sources.sh    # linux
-./update_external_sources.bat   # windows
-```
-
-Now, you should be able to continue building as normal.
 
 ### Repository Dependencies
 This repository attempts to resolve some of its dependencies by using
@@ -354,19 +250,6 @@ to use a loader built from a repository, then you must build the
 with its install target. Take note of its install directory location and pass
 it on the CMake command line for building this repository, as described below.
 
-#### Vulkan-ValidationLayers
-The tools in this repository depend on the Vulkan validation layers.
-
-Validation layers can be used from an installed LunarG SDK, an installed Linux
-package, or from a driver installation on Windows.
-
-If the validation layers are not available from any of these methods and/or
-it is important to use the validation layers built from a repository, then you
-must build the
-[Vulkan-ValidationLayers repository](https://github.com/KhronosGroup/Vulkan-ValidationLayers.git)
-with its install target. Take note of its install directory location and pass
-it on the CMake command line for building this repository, as described below.
-
 #### Khronos Vulkan-Tools
 
 The tests in this repository depend on the Vulkan-Tools repository, which is
@@ -402,10 +285,10 @@ quick-start tool for common use cases and default configurations.
 Cygwin is used in order to obtain a local copy of the Git repository, and to run the CMake command that creates Visual Studio files.
 Visual Studio is used to build the software, and will re-run CMake as appropriate.
 
-To build all Windows targets (e.g. in a "Developer Command Prompt for VS2015" window):
+To build all Windows targets (e.g. in a "Developer Command Prompt for VS2017" window):
 ```
 cd VulkanTools-ForSC  # cd to the root of the VulkanTools-ForSC git repository
-cmake -H. -Bdbuild -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 14 2015 Win64" -DCMAKE_INSTALL_PREFIX=build/install -DVULKAN_HEADERS_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_LOADER_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_VALIDATIONLAYERS_INSTALL_DIR=absolute_path_to_install_directory
+cmake -S . -B dbuild -DCMAKE_BUILD_TYPE=Debug -G "Visual Studio 15 2017 Win64" -DVULKAN_HEADERS_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_LOADER_INSTALL_DIR=absolute_path_to_install_directory
 cmake --build dbuild --config Debug --target install
 ```
 
@@ -444,7 +327,7 @@ This build process builds all items in the VulkanTools repository
 Example debug build:
 ```
 cd VulkanTools-ForSC  # cd to the root of the VulkanTools-ForSC git repository
-cmake -H. -Bdbuild -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=build/install -DVULKAN_HEADERS_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_LOADER_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_VALIDATIONLAYERS_INSTALL_DIR=absolute_path_to_install_directory
+cmake -H. -Bdbuild -DCMAKE_BUILD_TYPE=Debug -DVULKAN_HEADERS_INSTALL_DIR=absolute_path_to_install_directory -DVULKAN_LOADER_INSTALL_DIR=absolute_path_to_install_directory
 cd dbuild
 make -j8
 ```

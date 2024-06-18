@@ -2,10 +2,12 @@
 
 The repository contains the following Vulkan Tools:
 - [Vulkan Configurator](vkconfig/README.md)
-- [`VK_LAYER_LUNARG_api_dump`, `VK_LAYER_LUNARG_device_simulation`, `VK_LAYER_LUNARG_screenshot` and `VK_LAYER_LUNARG_monitor` layers](layersvt/README.md)
+- [`VK_LAYER_LUNARG_api_dump`, `VK_LAYER_LUNARG_screenshot` and `VK_LAYER_LUNARG_monitor` layers](layersvt/README.md)
 - [Vulkan Installation Analyzer](via/README.md)
 
 These tools have binaries included within the [Vulkan SDK](https://www.lunarg.com/vulkan-sdk/).
+
+## Removed Tools
 
 VkTrace and VkReplay have been deprecated and replaced by [gfxreconstruct](https://github.com/LunarG/gfxreconstruct).
 Both VkTrace and VkReplay have been removed from VulkanTools and can now be found in the [vktrace](https://github.com/LunarG/vktrace) archive.

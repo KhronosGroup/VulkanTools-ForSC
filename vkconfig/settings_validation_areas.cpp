@@ -56,6 +56,7 @@ static const char *TOKEN_SYNC_QUEUE_SUBMIT = "VALIDATION_CHECK_ENABLE_SYNCHRONIZ
 static const char *TOKEN_BEST = "VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT";
 static const char *TOKEN_BEST_ARM = "VALIDATION_CHECK_ENABLE_VENDOR_SPECIFIC_ARM";
 static const char *TOKEN_BEST_AMD = "VALIDATION_CHECK_ENABLE_VENDOR_SPECIFIC_AMD";
+static const char *TOKEN_BEST_IMG = "VALIDATION_CHECK_ENABLE_VENDOR_SPECIFIC_IMG";
 static const char *TOKEN_BEST_NVIDIA = "VALIDATION_CHECK_ENABLE_VENDOR_SPECIFIC_NVIDIA";
 
 QCheckBox *WidgetSettingValidation::CreateWidget(QTreeWidgetItem *parent, QTreeWidgetItem **item, const char *key,
@@ -116,6 +117,8 @@ WidgetSettingValidation::WidgetSettingValidation(QTreeWidget *tree, QTreeWidgetI
       widget_shader_gpu_reserve(nullptr),
       item_shader_gpu_oob(nullptr),
       widget_shader_gpu_oob(nullptr),
+      item_shader_gpu_robust_oob(nullptr),
+      widget_shader_gpu_robust_oob(nullptr),
       item_shader_gpu_desc_indexing(nullptr),
       widget_shader_gpu_desc_indexing(nullptr),
       item_shader_gpu_indirect(nullptr),
@@ -144,13 +147,13 @@ WidgetSettingValidation::WidgetSettingValidation(QTreeWidget *tree, QTreeWidgetI
       widget_best_arm(nullptr),
       item_best_amd(nullptr),
       widget_best_amd(nullptr),
+      item_best_img(nullptr),
+      widget_best_img(nullptr),
       item_best_nvidia(nullptr),
       widget_best_nvidia(nullptr),
 
       meta_set(meta_set),
       data_set(data_set) {
-    assert(&meta_set);
-    assert(&data_set);
     assert(FindSetting(meta_set, "enables") != nullptr);
     assert(FindSetting(meta_set, "disables") != nullptr);
     assert(FindSetting(data_set, "enables") != nullptr);
@@ -287,6 +290,23 @@ WidgetSettingValidation::WidgetSettingValidation(QTreeWidget *tree, QTreeWidgetI
                     this->widget_shader_gpu_oob->setToolTip(value->description.c_str());
                     this->tree->setItemWidget(this->item_shader_gpu_oob, 0, this->widget_shader_gpu_oob);
                     this->connect(this->widget_shader_gpu_oob, SIGNAL(clicked(bool)), this, SLOT(OnShaderGPUOOBChecked(bool)));
+
+                    {
+                        const SettingMetaBool *value = FindSetting<SettingMetaBool>(meta_set, "warn_on_robust_oob");
+                        if (IsSupported(value)) {
+                            this->item_shader_gpu_robust_oob = new QTreeWidgetItem();
+                            this->item_shader_gpu_robust_oob->setSizeHint(0, QSize(0, ITEM_HEIGHT));
+                            this->item_shader_gpu_oob->addChild(this->item_shader_gpu_robust_oob);
+                            this->item_shader_gpu_oob->setExpanded(true);
+
+                            this->widget_shader_gpu_robust_oob = new QCheckBox(this);
+                            this->widget_shader_gpu_robust_oob->setText(value->label.c_str());
+                            this->widget_shader_gpu_robust_oob->setToolTip(value->description.c_str());
+                            this->tree->setItemWidget(this->item_shader_gpu_robust_oob, 0, this->widget_shader_gpu_robust_oob);
+                            this->connect(this->widget_shader_gpu_robust_oob, SIGNAL(clicked(bool)), this,
+                                          SLOT(OnShaderGPURobustOOBChecked(bool)));
+                        }
+                    }
                 }
             }
 
@@ -433,6 +453,10 @@ WidgetSettingValidation::WidgetSettingValidation(QTreeWidget *tree, QTreeWidgetI
         this->widget_best_arm = this->CreateWidget(this->item_best, &this->item_best_arm, "enables", TOKEN_BEST_ARM);
         if (this->widget_best_arm != nullptr)
             this->connect(this->widget_best_arm, SIGNAL(clicked(bool)), this, SLOT(OnBestArmChecked(bool)));
+
+        this->widget_best_img = this->CreateWidget(this->item_best, &this->item_best_img, "enables", TOKEN_BEST_IMG);
+        if (this->widget_best_img != nullptr)
+            this->connect(this->widget_best_img, SIGNAL(clicked(bool)), this, SLOT(OnBestImgChecked(bool)));
 
         this->widget_best_nvidia = this->CreateWidget(this->item_best, &this->item_best_nvidia, "enables", TOKEN_BEST_NVIDIA);
         if (this->widget_best_nvidia != nullptr)
@@ -593,6 +617,11 @@ void WidgetSettingValidation::OnShaderGPUOOBChecked(bool checked) {
     this->OnSettingChanged();
 }
 
+void WidgetSettingValidation::OnShaderGPURobustOOBChecked(bool checked) {
+    static_cast<SettingDataBool *>(FindSetting(this->data_set, "warn_on_robust_oob"))->value = checked;
+    this->OnSettingChanged();
+}
+
 void WidgetSettingValidation::OnShaderGPUIndirectChecked(bool checked) {
     static_cast<SettingDataBool *>(FindSetting(this->data_set, "validate_draw_indirect"))->value = checked;
     this->OnSettingChanged();
@@ -656,6 +685,11 @@ void WidgetSettingValidation::OnBestArmChecked(bool checked) {
 
 void WidgetSettingValidation::OnBestAmdChecked(bool checked) {
     this->UpdateFlag("enables", TOKEN_BEST_AMD, checked);
+    this->OnSettingChanged();
+}
+
+void WidgetSettingValidation::OnBestImgChecked(bool checked) {
+    this->UpdateFlag("enables", TOKEN_BEST_IMG, checked);
     this->OnSettingChanged();
 }
 
@@ -837,6 +871,12 @@ void WidgetSettingValidation::Refresh(RefreshAreas refresh_areas) {
                 this->widget_shader_gpu_oob->setEnabled(shader_gpu);
                 if (refresh_areas == REFRESH_ENABLE_AND_STATE)
                     this->widget_shader_gpu_oob->setChecked(this->HasDataBool("gpuav_buffer_oob"));
+
+                if (this->widget_shader_gpu_robust_oob != nullptr) {
+                    this->widget_shader_gpu_robust_oob->setEnabled(shader_gpu && this->HasDataBool("gpuav_buffer_oob"));
+                    if (refresh_areas == REFRESH_ENABLE_AND_STATE)
+                        this->widget_shader_gpu_robust_oob->setChecked(this->HasDataBool("warn_on_robust_oob"));
+                }
             }
 
             if (this->widget_shader_gpu_indirect != nullptr) {
@@ -916,6 +956,13 @@ void WidgetSettingValidation::Refresh(RefreshAreas refresh_areas) {
         this->widget_best_amd->setEnabled(HasDataFlag("enables", TOKEN_BEST));
         if (refresh_areas == REFRESH_ENABLE_AND_STATE) {
             this->widget_best_amd->setChecked(HasDataFlag("enables", TOKEN_BEST_AMD));
+        }
+    }
+
+    if (this->widget_best_img != nullptr) {
+        this->widget_best_img->setEnabled(HasDataFlag("enables", TOKEN_BEST));
+        if (refresh_areas == REFRESH_ENABLE_AND_STATE) {
+            this->widget_best_img->setChecked(HasDataFlag("enables", TOKEN_BEST_IMG));
         }
     }
 

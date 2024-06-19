@@ -9,15 +9,37 @@
         ],
         "DescriptorSetLayouts" :
         [
+            {
+                "pSetLayouts_0":
+                {
+                    "sType" : "VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO",
+                    "pNext":"NULL",
+                    "flags" : "0",
+                    "bindingCount" : 1,
+                    "pBindings": 
+                    [
+                    {
+                        "binding" : 0,
+                        "descriptorType" : "VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER",
+                        "descriptorCount" : 1,
+                        "stageFlags" : "VK_SHADER_STAGE_COMPUTE_BIT",
+                        "pImmutableSamplers":
+                        "NULL"
+                    }
+                    ]
+                }
+            }
         ],
         "PipelineLayout" : 
         {
             "sType" : "VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO",
             "pNext":"NULL",
             "flags" : 0,
-            "setLayoutCount" : 0,
+            "setLayoutCount" : 1,
             "pSetLayouts":
-            "NULL",
+            [
+            "pSetLayouts_0"
+            ],
             "pushConstantRangeCount" : 0,
             "pPushConstantRanges": 
             "NULL"
@@ -55,21 +77,21 @@
     ],
     "PipelineUUID" : 
     [
-        0,
-        92,
-        99,
-        197,
-        34,
         32,
-        36,
-        136,
-        145,
-        57,
-        35,
-        207,
-        203,
-        7,
-        104,
-        136
+        6,
+        226,
+        50,
+        19,
+        74,
+        246,
+        232,
+        54,
+        124,
+        197,
+        163,
+        80,
+        127,
+        246,
+        209
     ]
 }

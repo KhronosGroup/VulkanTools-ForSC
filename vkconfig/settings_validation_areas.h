@@ -93,6 +93,9 @@ class WidgetSettingValidation : public WidgetSettingBase {
     QTreeWidgetItem *item_shader_gpu_oob;
     QCheckBox *widget_shader_gpu_oob;
 
+    QTreeWidgetItem *item_shader_gpu_robust_oob;
+    QCheckBox *widget_shader_gpu_robust_oob;
+
     QTreeWidgetItem *item_shader_gpu_desc_indexing;
     QCheckBox *widget_shader_gpu_desc_indexing;
 
@@ -132,6 +135,9 @@ class WidgetSettingValidation : public WidgetSettingBase {
     QTreeWidgetItem *item_best_amd;
     QCheckBox *widget_best_amd;
 
+    QTreeWidgetItem *item_best_img;
+    QCheckBox *widget_best_img;
+
     QTreeWidgetItem *item_best_nvidia;
     QCheckBox *widget_best_nvidia;
 
@@ -160,6 +166,7 @@ class WidgetSettingValidation : public WidgetSettingBase {
     void OnShaderGPUReserveChecked(bool checked);
     void OnShaderGPUDescIndexingChecked(bool checked);
     void OnShaderGPUOOBChecked(bool checked);
+    void OnShaderGPURobustOOBChecked(bool checked);
     void OnShaderGPUIndirectChecked(bool checked);
     void OnShaderDispatchIndirectChecked(bool checked);
     void OnShaderGPUVMALinearOutput(bool checked);
@@ -174,6 +181,7 @@ class WidgetSettingValidation : public WidgetSettingBase {
     void OnBestChecked(bool checked);
     void OnBestArmChecked(bool checked);
     void OnBestAmdChecked(bool checked);
+    void OnBestImgChecked(bool checked);
     void OnBestNvidiaChecked(bool checked);
 
     void OnSettingChanged();

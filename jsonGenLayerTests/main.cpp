@@ -25,6 +25,12 @@
 #include <fstream>
 #include <stdlib.h>
 
+#if defined(WIN32)
+#define PATH_SEPARATOR "\\"
+#else
+#define PATH_SEPARATOR "/"
+#endif
+
 static const char* jsonGenLayerName = "VK_LAYER_KHRONOS_json_gen";
 std::string SHADERS_PATH = "";
 
@@ -39,46 +45,47 @@ static VkQueue          globalQueue = VK_NULL_HANDLE;
 static std::vector<VkPhysicalDevice>    globalPhysdevs;
 static VkPhysicalDeviceProperties       globalDeviceProperties;
 static VkPhysicalDeviceMemoryProperties globalDeviceMemoryProperties;
-static VkPipelineShaderStageCreateInfo  globalShaderStageInfo[2] = { { }, { } };
+static VkPipelineShaderStageCreateInfo  globalShaderStageInfo[3] = { { }, { }, { } };
 static VkFormat globalColorFormat = VK_FORMAT_B8G8R8A8_UNORM;
 static int      globalWidth  = 1920;
 static int      globalHeight = 1080;
 int globalUUIDGraphicsPipeline[] = {
-    74,
-    141,
-    64,
-    185,
-    174,
-    95,
-    22,
-    195,
-    64,
-    240,
-    45,
-    12,
-    137,
-    74,
-    92,
-    40
+    119,
+    108,
+    254,
+    154,
+    61,
+    91,
+    217,
+    72,
+    164,
+    186,
+    245,
+    99,
+    244,
+    243,
+    84,
+    164
 };
 int globalUUIDComputePipeline[] = {
-    0,
-    92,
-    99,
-    197,
-    34,
     32,
-    36,
-    136,
-    145,
-    57,
-    35,
-    207,
-    203,
-    7,
-    104,
-    136
+    6,
+    226,
+    50,
+    19,
+    74,
+    246,
+    232,
+    54,
+    124,
+    197,
+    163,
+    80,
+    127,
+    246,
+    209
 };
+static VkDescriptorSetLayout globalDescriptorSetLayout = VK_NULL_HANDLE;
 
 #define LOG(fn) if (result == VK_SUCCESS) std::cout << fn << " OK" << std::endl;      \
                 else                      std::cout << fn << " ERROR!!" << std::endl; \
@@ -233,6 +240,7 @@ static VkShaderModule loadSPIRVShader(std::string filename)
         return shaderModule;
     } else {
         std::cerr << "Error: Could not open shader file \"" << filename << "\"" << std::endl;
+        exit(1);
         return VK_NULL_HANDLE;
     }
 }
@@ -243,13 +251,13 @@ void createGraphicsShaderStageInfo()
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
     vertShaderStageInfo.pName = "main";
-    vertShaderStageInfo.module = loadSPIRVShader(SHADERS_PATH + "\\vert.spv");
+    vertShaderStageInfo.module = loadSPIRVShader(SHADERS_PATH + PATH_SEPARATOR "vert.spv");
 
     VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
     fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     fragShaderStageInfo.pName = "main";
-    fragShaderStageInfo.module = loadSPIRVShader(SHADERS_PATH + "\\frag.spv");
+    fragShaderStageInfo.module = loadSPIRVShader(SHADERS_PATH + PATH_SEPARATOR "frag.spv");
 
     globalShaderStageInfo[0] = vertShaderStageInfo;
     globalShaderStageInfo[1] = fragShaderStageInfo;
@@ -379,9 +387,25 @@ VkResult createGraphicsPipeline()
 VkResult createComputePipeline()
 {
     VkResult result;
+
+    VkDescriptorSetLayoutBinding binding = {};
+    binding.binding = 0;
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding.descriptorCount = 1;
+    binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
+    descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorSetLayoutCreateInfo.bindingCount = 1;
+    descriptorSetLayoutCreateInfo.pBindings = &binding;
+
+    vkCreateDescriptorSetLayout(globalDev, &descriptorSetLayoutCreateInfo, nullptr, &globalDescriptorSetLayout);
     
     VkPipelineLayoutCreateInfo layoutCreateInfo = {};
     layoutCreateInfo.sType                     = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layoutCreateInfo.setLayoutCount            = 1;
+    layoutCreateInfo.pSetLayouts               = &globalDescriptorSetLayout;
+
     result = vkCreatePipelineLayout(globalDev, &layoutCreateInfo, nullptr, &globalComputePipelineLayout);
     LOG("vkCreatePipelineLayout - Compute Pipeline");
 
@@ -392,8 +416,10 @@ VkResult createComputePipeline()
     VkPipelineShaderStageCreateInfo shaderStage = {};
     shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     shaderStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    shaderStage.module = loadSPIRVShader(SHADERS_PATH + "\\headless.comp.spv");
+    shaderStage.module = loadSPIRVShader(SHADERS_PATH + PATH_SEPARATOR "headless.comp.spv");
     shaderStage.pName = "main";
+
+    globalShaderStageInfo[2] = shaderStage;
 
     computePipelineCreateInfo.stage = shaderStage;
 
@@ -410,6 +436,7 @@ bool compareUUID(uint8_t* uuidGraphics, uint8_t* uuidCompute)
             std::cerr << "Obtained Graphics Pipeline UUID:" << std::endl;
             for (int i = 0; i < VK_UUID_SIZE; i++) {
                 std::cout << static_cast<int>(uuidGraphics[i]) << std::endl;
+
             }
             std::cerr << "Expected Graphics Pipeline UUID:" << std::endl;
             for (int i = 0; i < VK_UUID_SIZE; i++) {
@@ -468,12 +495,14 @@ bool checkPipelinePropertiesEXT()
 static VkResult cleanup()
 {
     vkDestroyRenderPass(globalDev, globalRenderPass, nullptr);
-    vkDestroyPipelineLayout(globalDev, globalGraphicsPipelineLayout, nullptr);
-    vkDestroyPipelineLayout(globalDev, globalComputePipelineLayout, nullptr);
     vkDestroyPipeline(globalDev, globalGraphicsPipeline, nullptr);
     vkDestroyPipeline(globalDev, globalComputePipeline, nullptr);
+    vkDestroyPipelineLayout(globalDev, globalGraphicsPipelineLayout, nullptr);
+    vkDestroyPipelineLayout(globalDev, globalComputePipelineLayout, nullptr);
+    vkDestroyDescriptorSetLayout(globalDev, globalDescriptorSetLayout, nullptr);
     vkDestroyShaderModule(globalDev, globalShaderStageInfo[0].module, nullptr);
     vkDestroyShaderModule(globalDev, globalShaderStageInfo[1].module, nullptr);
+    vkDestroyShaderModule(globalDev, globalShaderStageInfo[2].module, nullptr);
     vkDestroyDevice(globalDev, NULL);
     vkDestroyInstance(globalInstance, NULL);
 
@@ -482,10 +511,10 @@ static VkResult cleanup()
 
 static void show_usage(std::string name)
 {
-    std::cerr << "Usage: " << name << " <option(s)> SOURCES"
+    std::cerr << "Usage: " << name << " <option(s)> SOURCES\n"
               << "Options:\n"
               << "\t-h,--help\t\tShow this help message\n"
-              << "\t-j,--jsonSpv\t\tSpecify the path to the JSON files and SPIRV Shaders directory"
+              << "\t-s,--shaders\t\tSpecify the path to the JSON files and SPIRV Shaders directory"
               << std::endl;
 }
 
@@ -516,32 +545,45 @@ static bool parseCommandLineArgs(int argc, char** argv)
     return true;
 }
 
+#define CHECK_RESULT(expr) \
+    do { \
+        result = (expr); \
+        if (result != VK_SUCCESS) { \
+            std::cout << "Function call failed: " #expr << std::endl; \
+            return 1; \
+        } \
+    } while (0)
+
 int main(int argc, char** argv)
 {
     VkResult result = VK_SUCCESS;
 
     bool status = parseCommandLineArgs(argc, argv);
-    if (!status)
-        return 0;
+    if (!status) {
+        std::cout << "Failed to parse command line arguments" << std::endl;
+        return 1;
+    }
 
-    result = createInstance();
+    CHECK_RESULT(createInstance());
 
-    result = selectPhysicalDevice();
+    CHECK_RESULT(selectPhysicalDevice());
 
-    result = createLogicalDevice();
+    CHECK_RESULT(createLogicalDevice());
 
     createGraphicsShaderStageInfo();
 
-    result = createRenderPass();
+    CHECK_RESULT(createRenderPass());
 
-    result = createGraphicsPipeline();
+    CHECK_RESULT(createGraphicsPipeline());
 
-    result = createComputePipeline();
+    CHECK_RESULT(createComputePipeline());
 
-    assert(checkPipelinePropertiesEXT() == true);
+    if (!checkPipelinePropertiesEXT()) {
+        std::cout << "Function call failed: checkPipelinePropertiesEXT" << std::endl;
+        return 1;
+    }
 
-    result = cleanup();
-    assert(result == VK_SUCCESS);
+    CHECK_RESULT(cleanup());
 
     return 0;
 }

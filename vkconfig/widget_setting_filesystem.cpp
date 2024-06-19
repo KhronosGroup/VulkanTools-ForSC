@@ -38,8 +38,6 @@ WidgetSettingFilesystem::WidgetSettingFilesystem(QTreeWidget* tree, QTreeWidgetI
       item_child(new QTreeWidgetItem()),
       field(new QLineEdit(this)),
       button(new QPushButton(this)) {
-    assert(&meta);
-
     this->field->show();
     this->connect(this->field, SIGNAL(textEdited(const QString&)), this, SLOT(textFieldChanged(const QString&)));
 
@@ -103,6 +101,7 @@ void WidgetSettingFilesystem::LoadFile(const std::string& path) {
             file_setting_data.profile_names = GetProfileNames(path);
 
             SettingDataString* enum_setting_data = FindSetting<SettingDataString>(this->data_set, "profile_name");
+            enum_setting_data->value.clear();
             if (!file_setting_data.profile_names.empty() && enum_setting_data != nullptr) {
                 enum_setting_data->value = file_setting_data.profile_names[0];
             }
@@ -135,8 +134,6 @@ void WidgetSettingFilesystem::browseButtonClicked() {
 
     if (!file.empty()) {
         file = ConvertNativeSeparators(file);
-        LoadFile(file);
-
         this->data().value = file;
 
         field->setText(this->data().value.c_str());
@@ -146,7 +143,17 @@ void WidgetSettingFilesystem::browseButtonClicked() {
 }
 
 void WidgetSettingFilesystem::textFieldChanged(const QString& value) {
-    this->data().value = value.toStdString();
+    std::string file = value.toStdString();
+
+    if (!file.empty()) {
+        LoadFile(file);
+
+        if (VKC_ENV == VKC_ENV_WIN32) {
+            file = ConvertSeparators(file, "/", GetNativeSeparator());
+        }
+    }
+
+    this->data().value = file;
     this->field->setToolTip(this->field->text());
 
     emit itemChanged();

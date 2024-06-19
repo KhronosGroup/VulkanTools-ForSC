@@ -523,7 +523,9 @@ bool ExactExecutableFromAppBundle(std::string& app_path) {
     path += "/Contents/";
     std::string list_file = path + "Info.plist";
     QFile file(list_file.c_str());
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return false;
+    }
 
     QTextStream stream(&file);
 
@@ -535,7 +537,8 @@ bool ExactExecutableFromAppBundle(std::string& app_path) {
             line_buffer = stream.readLine();                          // <string>Qt Creator</string>
             char* cExeName = new char[line_buffer.length()];          // Prevent buffer overrun
 
-            const char* pStart = strstr(line_buffer.toUtf8().constData(), "<string>");
+            QByteArray line_array = line_buffer.toUtf8();
+            const char* pStart = strstr(line_array.constData(), "<string>");
             if (pStart == nullptr) return false;
 
             // We found it, now extract it out

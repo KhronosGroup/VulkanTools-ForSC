@@ -215,6 +215,7 @@ std::vector<Parameter> GatherParameters(const std::vector<Parameter>& parameters
         Parameter parameter;
         parameter.key = layer.key;
         parameter.state = LAYER_STATE_APPLICATION_CONTROLLED;
+        parameter.api_version = layer.api_version;
         CollectDefaultSettingData(layer.settings, parameter.settings);
 
         gathered_parameters.push_back(parameter);
@@ -223,4 +224,19 @@ std::vector<Parameter> GatherParameters(const std::vector<Parameter>& parameters
     OrderParameter(gathered_parameters, available_layers);
 
     return gathered_parameters;
+}
+
+bool UseBuiltinValidationSettings(const Parameter& parameter) {
+    if (parameter.key != "VK_LAYER_KHRONOS_validation") {
+        return false;
+    }
+
+    for (std::size_t j = 0, m = parameter.settings.size(); j < m; ++j) {
+        const SettingData* setting_data = parameter.settings[j];
+        if (setting_data->key == "validation_control") {
+            return false;
+        }
+    }
+
+    return true;
 }

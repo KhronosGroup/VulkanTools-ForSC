@@ -1,6 +1,3 @@
-cmake_minimum_required(VERSION 3.10.2)
-project(vkconfig)
-
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 find_package(Qt5 COMPONENTS Core Gui Widgets Network QUIET)
@@ -50,21 +47,18 @@ if(Qt5_FOUND)
     set(FILES_ALL ${FILES_SOURCE} ${FILES_HEADER} ${FILES_RESOURCES})
 
     add_library(vkconfig_core STATIC ${FILES_ALL})
+    target_compile_options(vkconfig_core PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/MP>)
     target_compile_definitions(vkconfig_core PRIVATE QT_NO_DEBUG_OUTPUT QT_NO_WARNING_OUTPUT)
+    set_target_properties(vkconfig_core PROPERTIES FOLDER "vkconfig")
 
     if(WIN32)
         target_compile_definitions(vkconfig_core PRIVATE _CRT_SECURE_NO_WARNINGS)
         target_link_libraries(vkconfig_core Cfgmgr32)
     endif()
 
-    if (CMAKE_COMPILER_IS_GNUCC)
-        # Disable -Wno-maybe-uninitialized because of warnings with jsoncpp and GCC 12
-        add_compile_options("-Wno-maybe-uninitialized")
-     endif()
+    target_link_libraries(vkconfig_core Vulkan::Headers valijson Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network)
 
-    target_include_directories(vkconfig_core PRIVATE "${Vulkan_INCLUDE_DIR}")
-    target_link_libraries(vkconfig_core vku Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network)
-    target_compile_definitions(vkconfig_core PRIVATE ${VKCONFIG_DEFINITIONS})
-
-    add_subdirectory(test)
+    if(BUILD_TESTS)
+        add_subdirectory(test)
+    endif()
 endif()

@@ -29,10 +29,13 @@ static const int MIN_FIELD_WIDTH = 120;
 WidgetSettingString::WidgetSettingString(QTreeWidget* tree, QTreeWidgetItem* item, const SettingMetaString& meta,
                                          SettingDataSet& data_set)
     : WidgetSettingBase(tree, item), meta(meta), data_set(data_set), field(new QLineEdit(this)) {
-    assert(&meta);
-
     this->field->setText(this->data().value.c_str());
-    this->field->setFont(tree->font());
+    QFont font = tree->font();
+    if (meta.key == "force_device_uuid") {
+        font.setFamily("Consolas");
+        font.setPointSize(10);
+    }
+    this->field->setFont(font);
     this->field->setToolTip(this->field->text());
     this->field->show();
 

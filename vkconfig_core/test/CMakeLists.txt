@@ -1,4 +1,3 @@
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_AUTORCC ON)
 
 if (NOT DEFINED CMAKE_INSTALL_BINDIR)
@@ -14,12 +13,21 @@ function(vkConfigTest NAME)
     source_group("Test Files" FILES ${FILES_JSON} ${FILES_TEXT})
 
     add_executable(${TEST_NAME} ${TEST_FILE} ${FILES_JSON} ${FILES_TEXT} resources.qrc)
-    target_link_libraries(${TEST_NAME} vkconfig_core gtest gtest_main Qt5::Core Qt5::Gui Qt5::Widgets Qt5::Network)
+    set_target_properties(${TEST_NAME} PROPERTIES FOLDER "vkconfig/tests")
+    target_link_libraries(${TEST_NAME} vkconfig_core
+        Vulkan::LayerSettings
+        GTest::gtest
+        GTest::gtest_main
+        Qt5::Core
+        Qt5::Gui
+        Qt5::Widgets
+        Qt5::Network
+    )
     if(WIN32)
         target_link_libraries(${TEST_NAME} Cfgmgr32)
     endif()
     add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-endfunction(vkConfigTest)
+endfunction()
 
 vkConfigTest(test_date)
 vkConfigTest(test_util)

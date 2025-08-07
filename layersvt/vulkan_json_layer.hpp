@@ -19,6 +19,15 @@
 #pragma once
 
 #include <algorithm>
+#include <string>
+#include <vector>
+#include <map>
+#include <sstream>
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cassert>
 #ifdef __linux__
 #include <unistd.h>
 #endif // __linux__
@@ -38,7 +47,7 @@
 #define EXPORT_FUNCTION
 #endif
 
-namespace vk_json 
+namespace vk_json
 {
 
 struct ObjectResCreateInfo {
@@ -195,7 +204,7 @@ class PipelineData {
                         std::stringstream ss;
                         ss << i << "_" << j;
                         std::string s(ss.str());
-                        VkSampler sampler = (const_cast<VkSampler>(b.pImmutableSamplers[i]));
+                        VkSampler sampler = (const_cast<VkSampler>(b.pImmutableSamplers[j]));
                         m_ImmutableSamplerBindingMap.insert(std::make_pair(sampler, s));
                     }
                 }
@@ -208,7 +217,7 @@ class PipelineData {
         m_renderPass2Flag = true;
         m_renderPassFlag = false;
         clearString();
-        
+
         INDENT(INDENT_RENDERPASS);
         {
             print_VkRenderPassCreateInfo2(pCreateInfo, "RenderPass2");
@@ -228,7 +237,7 @@ class PipelineData {
         m_renderPassFlag = true;
         m_renderPass2Flag = false;
         clearString();
-        
+
         INDENT(INDENT_RENDERPASS);
         {
             print_VkRenderPassCreateInfo(pCreateInfo, "RenderPass");
@@ -243,7 +252,7 @@ class PipelineData {
         INDENT(-INDENT_RENDERPASS);
     }
 
-    void setPhysicalDeviceFeatures2(const VkPhysicalDeviceFeatures2* pFeatures) 
+    void setPhysicalDeviceFeatures2(const VkPhysicalDeviceFeatures2* pFeatures)
     {
         clearString();
 
@@ -276,7 +285,7 @@ class PipelineData {
         assert(result == VK_SUCCESS);
     }
 
-    void setShaderModuleInfo(const VkShaderModuleCreateInfo* pCreateInfo, VkShaderModule* m) 
+    void setShaderModuleInfo(const VkShaderModuleCreateInfo* pCreateInfo, VkShaderModule* m)
     {
         if (pCreateInfo == nullptr || m == nullptr) {
             std::cout << "Error with shader module!" << std::endl;
@@ -297,7 +306,65 @@ class PipelineData {
             std::cout << "Error with sampler!" << std::endl;
             exit(-1);
         }
-        m_samplerInfoMap.insert(std::make_pair(*pSampler, *pCreateInfo));
+
+        // Create a copy of the sampler create info and explicitly ensure sType is correct
+        VkSamplerCreateInfo samplerInfo = {};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.pNext = pCreateInfo->pNext;
+        samplerInfo.flags = pCreateInfo->flags;
+        samplerInfo.magFilter = pCreateInfo->magFilter;
+        samplerInfo.minFilter = pCreateInfo->minFilter;
+        samplerInfo.mipmapMode = pCreateInfo->mipmapMode;
+        samplerInfo.addressModeU = pCreateInfo->addressModeU;
+        samplerInfo.addressModeV = pCreateInfo->addressModeV;
+        samplerInfo.addressModeW = pCreateInfo->addressModeW;
+        samplerInfo.mipLodBias = pCreateInfo->mipLodBias;
+        samplerInfo.anisotropyEnable = pCreateInfo->anisotropyEnable;
+        samplerInfo.maxAnisotropy = pCreateInfo->maxAnisotropy;
+        samplerInfo.compareEnable = pCreateInfo->compareEnable;
+        samplerInfo.compareOp = pCreateInfo->compareOp;
+        samplerInfo.minLod = pCreateInfo->minLod;
+        samplerInfo.maxLod = pCreateInfo->maxLod;
+        samplerInfo.borderColor = pCreateInfo->borderColor;
+        samplerInfo.unnormalizedCoordinates = pCreateInfo->unnormalizedCoordinates;
+
+        // Check for YCbCr conversion info in pNext chain and store it persistently
+        const VkBaseInStructure* pNext = reinterpret_cast<const VkBaseInStructure*>(pCreateInfo->pNext);
+        while (pNext != nullptr) {
+            if (pNext->sType == VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO) {
+                const VkSamplerYcbcrConversionInfo* ycbcrInfo = reinterpret_cast<const VkSamplerYcbcrConversionInfo*>(pNext);
+                // Store a copy of the YCbCr conversion info
+                m_samplerYcbcrInfoMap.insert(std::make_pair(*pSampler, *ycbcrInfo));
+                // Update the sampler create info to point to our persistent copy
+                samplerInfo.pNext = &m_samplerYcbcrInfoMap[*pSampler];
+                // Also store the association
+                setYcbcrSamplerConversionAssociation(*pSampler, ycbcrInfo->conversion);
+                break;
+            }
+            pNext = pNext->pNext;
+        }
+
+        // Store the modified sampler create info with persistent pNext chain
+        m_samplerInfoMap.insert(std::make_pair(*pSampler, samplerInfo));
+    }
+
+    void setYcbcrConversionInfo(const VkSamplerYcbcrConversionCreateInfo* pCreateInfo, VkSamplerYcbcrConversion* pYcbcrConversion)
+    {
+        if (pCreateInfo == nullptr || pYcbcrConversion == nullptr) {
+            std::cout << "Error with YCbCr conversion!" << std::endl;
+            exit(-1);
+        }
+        m_ycbcrConversionInfoMap.insert(std::make_pair(*pYcbcrConversion, *pCreateInfo));
+    }
+
+    void setYcbcrSamplerConversionAssociation(VkSampler sampler, VkSamplerYcbcrConversion conversion)
+    {
+        m_ycbcrSamplerConversionMap.insert(std::make_pair(sampler, conversion));
+    }
+
+    void deleteYcbcrConversionInfo(VkSamplerYcbcrConversion ycbcrConversion)
+    {
+        m_ycbcrConversionInfoMap.erase(ycbcrConversion);
     }
 
     void setDevice(const VkDeviceCreateInfo* pCreateInfo)
@@ -416,13 +483,8 @@ class PipelineData {
             vk_json::_string_stream << "{" << std::endl;
             vk_json::s_num_spaces += 4;
 
-            // TODO: This is not supported right now, so leaving this empty.
-            for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-            vk_json::_string_stream << "\"YcbcrSamplers\" :" << std::endl;
-            for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-            vk_json::_string_stream << "[" << std::endl;
-            for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-            vk_json::_string_stream << "]," << std::endl;
+            // Gather and dump YCbCr Samplers.
+            dumpYcbcrSamplers();
 
             // Gather and dump Immutable Samplers.
             dumpImmutableSamplers();
@@ -437,7 +499,7 @@ class PipelineData {
 
             if (pipelineLayoutCreateInfoString && !pipelineLayoutCreateInfoString->empty()) {
                 for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-                vk_json::_string_stream << "\"PipelineLayout\" : " << std::endl;
+                vk_json::_string_stream << "\"PipelineLayout\" :" << std::endl;
                 vk_json::_string_stream << *pipelineLayoutCreateInfoString;
             } else {
                 std::cout << "Error: No pipeline layout information available. Exiting!\n";
@@ -447,7 +509,7 @@ class PipelineData {
             // Dump ComputePipeline
             if (!computePipelineCreateInfoString.empty()) {
                 for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-                vk_json::_string_stream << "\"ComputePipeline\" : " << std::endl;
+                vk_json::_string_stream << "\"ComputePipeline\" :" << std::endl;
                 vk_json::_string_stream << computePipelineCreateInfoString;
             } else {
                 std::cout << "Error: No compute pipeline information available. Exiting!\n";
@@ -486,7 +548,7 @@ class PipelineData {
             // device extensions
             {
                 for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-                vk_json::_string_stream << "\"EnabledExtensions\" : " << std::endl;
+                vk_json::_string_stream << "\"EnabledExtensions\" :" << std::endl;
                 for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
                 vk_json::_string_stream << "[" << std::endl;
                 vk_json::s_num_spaces += 4;
@@ -506,7 +568,7 @@ class PipelineData {
 
             // Dump Pipeline Identifier
             for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-            vk_json::_string_stream << "\"PipelineUUID\" : " << std::endl;
+            vk_json::_string_stream << "\"PipelineUUID\" :" << std::endl;
             for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
             vk_json::_string_stream << "[" << std::endl;
             vk_json::s_num_spaces += 4;
@@ -527,7 +589,7 @@ class PipelineData {
         }
     }
 
-    void dumpImmutableSamplers() 
+    void dumpImmutableSamplers()
     {
         for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
         vk_json::_string_stream << "\"ImmutableSamplers\" :" << std::endl;
@@ -544,7 +606,7 @@ class PipelineData {
             vk_json::s_num_spaces += 4;
 
             for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-            vk_json::_string_stream << "\"" << "\"pImmutableSamplers_" << m_ImmutableSamplerBindingMap[keyVal.first] << "\" : " << std::endl;
+            vk_json::_string_stream << "\"pImmutableSamplers_" << m_ImmutableSamplerBindingMap[keyVal.first] << "\" :" << std::endl;
 
             VkSamplerCreateInfo s = m_samplerInfoMap[keyVal.first];
             print_VkSamplerCreateInfo(s, "ImmutableSamplers", (count + 1 != sz));
@@ -559,6 +621,70 @@ class PipelineData {
 
             count++;
         }
+        vk_json::s_num_spaces -= 4;
+        for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
+        vk_json::_string_stream << "]," << std::endl;
+    }
+
+    void dumpYcbcrSamplers()
+    {
+        for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
+        vk_json::_string_stream << "\"YcbcrSamplers\" :" << std::endl;
+        for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
+        vk_json::_string_stream << "[" << std::endl;
+        vk_json::s_num_spaces += 4;
+
+        // Collect unique YCbCr conversions used by immutable samplers in this pipeline
+        std::map<VkSamplerYcbcrConversion, int> conversionToIdMap;
+        int nextId = 1000; // Start with a base ID to avoid conflicts
+
+        for (const auto& immutableSamplerPair : m_ImmutableSamplerBindingMap) {
+            VkSampler sampler = immutableSamplerPair.first;
+            // Check if this immutable sampler has a YCbCr conversion
+            if (m_ycbcrSamplerConversionMap.find(sampler) != m_ycbcrSamplerConversionMap.end()) {
+                VkSamplerYcbcrConversion conversion = m_ycbcrSamplerConversionMap[sampler];
+                if (conversionToIdMap.find(conversion) == conversionToIdMap.end()) {
+                    conversionToIdMap[conversion] = nextId++;
+                }
+            }
+        }
+
+        int sz = (int)conversionToIdMap.size();
+        int count = 0;
+
+        // Output YCbCr conversions with integer IDs
+        for (const auto& conversionIdPair : conversionToIdMap) {
+            VkSamplerYcbcrConversion conversion = conversionIdPair.first;
+            int conversionId = conversionIdPair.second;
+
+            for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
+            vk_json::_string_stream << "{" << std::endl;
+            vk_json::s_num_spaces += 4;
+
+            // Output conversion with integer ID as key
+            for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
+            vk_json::_string_stream << "\"" << conversionId << "\" :" << std::endl;
+
+            if (m_ycbcrConversionInfoMap.find(conversion) != m_ycbcrConversionInfoMap.end()) {
+                VkSamplerYcbcrConversionCreateInfo conversionInfo = m_ycbcrConversionInfoMap[conversion];
+                print_VkSamplerYcbcrConversionCreateInfo(conversionInfo, "YcbcrConversion", (count + 1 != sz));
+            }
+
+            vk_json::s_num_spaces -= 4;
+            for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
+
+            if (count + 1 != sz)
+                vk_json::_string_stream << "}," << std::endl;
+            else
+                vk_json::_string_stream << "}" << std::endl;
+
+            count++;
+        }
+
+        // Store the mapping for use by ImmutableSamplers section
+        m_conversionToIdMap = conversionToIdMap;
+
+
         vk_json::s_num_spaces -= 4;
         for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
         vk_json::_string_stream << "]," << std::endl;
@@ -606,7 +732,7 @@ class PipelineData {
         vk_json::_string_stream << "]," << std::endl;
     }
 
-    std::stringstream dumpShaders(uint32_t stageCount, const VkPipelineShaderStageCreateInfo* pStages) 
+    std::stringstream dumpShaders(uint32_t stageCount, const VkPipelineShaderStageCreateInfo* pStages)
     {
         std::string jsonShaderString = "";
         std::stringstream shaderCode;
@@ -721,24 +847,19 @@ class PipelineData {
             if (renderPassCreateInfoString && !renderPassCreateInfoString->empty()) {
                 for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
                 if (m_renderPassFlag) {
-                    vk_json::_string_stream << "\"Renderpass\" : " << std::endl;
+                    vk_json::_string_stream << "\"Renderpass\" :" << std::endl;
                 }
                 else if (m_renderPass2Flag) {
-                    vk_json::_string_stream << "\"Renderpass2\" : " << std::endl;
+                    vk_json::_string_stream << "\"Renderpass2\" :" << std::endl;
                 }
                 vk_json::_string_stream << *renderPassCreateInfoString << std::endl;
             } else {
                 std::cout << "Error: No renderpass information available. Exiting!\n";
                 exit(-1);
             }
-        
-            // TODO: This is not supported right now, so leaving this empty.
-            for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-            vk_json::_string_stream << "\"YcbcrSamplers\" :" << std::endl;
-            for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-            vk_json::_string_stream << "[" << std::endl;
-            for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-            vk_json::_string_stream << "]," << std::endl;
+
+            // Gather and dump YCbCr Samplers.
+            dumpYcbcrSamplers();
 
             // Gather and dump Immutable Samplers.
             dumpImmutableSamplers();
@@ -752,7 +873,7 @@ class PipelineData {
             std::string *pipelineLayoutCreateInfoString = getPrivateData(device, VK_OBJECT_TYPE_PIPELINE_LAYOUT, reinterpret_cast<uint64_t>(pCreateInfos[cnt].layout));
             if (pipelineLayoutCreateInfoString && !pipelineLayoutCreateInfoString->empty()) {
                 for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-                vk_json::_string_stream << "\"PipelineLayout\" : " << std::endl;
+                vk_json::_string_stream << "\"PipelineLayout\" :" << std::endl;
                 vk_json::_string_stream << *pipelineLayoutCreateInfoString;
             } else {
                 std::cout << "Error: No pipeline layout information available. Exiting!\n";
@@ -762,7 +883,7 @@ class PipelineData {
             // Dump GraphicsPipeline
             if (!graphicsPipelineCreateInfoString.empty()) {
                 for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-                vk_json::_string_stream << "\"GraphicsPipeline\" : " << std::endl;
+                vk_json::_string_stream << "\"GraphicsPipeline\" :" << std::endl;
                 vk_json::_string_stream << graphicsPipelineCreateInfoString;
             } else {
                 std::cout << "Error: No graphics pipeline information available. Exiting!\n";
@@ -798,7 +919,7 @@ class PipelineData {
             // device extensions
             {
                 for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-                vk_json::_string_stream << "\"EnabledExtensions\" : " << std::endl;
+                vk_json::_string_stream << "\"EnabledExtensions\" :" << std::endl;
                 for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
                 vk_json::_string_stream << "[" << std::endl;
                 vk_json::s_num_spaces += 4;
@@ -818,7 +939,7 @@ class PipelineData {
 
             // Dump Pipeline Identifier
             for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
-            vk_json::_string_stream << "\"PipelineUUID\" : " << std::endl;
+            vk_json::_string_stream << "\"PipelineUUID\" :" << std::endl;
             for (int i = 0; i < vk_json::s_num_spaces; i++) vk_json::_string_stream << " ";
             vk_json::_string_stream << "[" << std::endl;
             vk_json::s_num_spaces += 4;
@@ -883,7 +1004,7 @@ class PipelineData {
         ss << "\tg_objectResCreateInfo.subpassDescriptionRequestCount             = " << 0 << "; // TODO: To be filled\n";
         ss << "\tg_objectResCreateInfo.descriptorSetLayoutBindingRequestCount     = " << objResInfo.descriptorSetLayoutBindingRequestCount << ";\n";
         ss << "\tg_objectResCreateInfo.attachmentDescriptionRequestCount          = " << 0 << "; // TODO: To be filled\n";
-        ss << "\tg_objectResCreateInfo.samplerYcbcrConversionRequestCount         = " << 0 << "; // TODO: To be filled\n";
+        ss << "\tg_objectResCreateInfo.samplerYcbcrConversionRequestCount         = " << objResInfo.samplerYcbcrConversionRequestCount << ";\n";
         ss << "\tg_objectResCreateInfo.descriptorSetLayoutBindingLimit            = " << 0 << "; // TODO: To be filled\n";
         ss << "\tg_objectResCreateInfo.maxImageViewMipLevels                      = " << objResInfo.maxImageViewMipLevels << ";\n";
         ss << "\tg_objectResCreateInfo.maxImageViewArrayLayers                    = " << 0 << "; // TODO: To be filled\n";
@@ -900,6 +1021,13 @@ class PipelineData {
     }
 
     void clearString() { _string_stream.str(std::string("")); }
+
+    int getYcbcrConversionId(VkSamplerYcbcrConversion conversion) const
+    {
+        auto it = m_conversionToIdMap.find(conversion);
+        if (it == m_conversionToIdMap.end()) return -1;
+        return it->second;
+    }
 
    private:
     // TODO: Better way to do this?
@@ -1014,6 +1142,10 @@ class PipelineData {
     std::map<VkPipelineLayout, DescLayoutVec> m_pipelineLayoutDescSetMap;
     std::map<VkShaderModule, ShaderInformation> m_shaderInfoMap;
     std::map<VkSampler, VkSamplerCreateInfo> m_samplerInfoMap;
+    std::map<VkSamplerYcbcrConversion, VkSamplerYcbcrConversionCreateInfo> m_ycbcrConversionInfoMap;
+    std::map<VkSampler, VkSamplerYcbcrConversion> m_ycbcrSamplerConversionMap;
+    std::map<VkSampler, VkSamplerYcbcrConversionInfo> m_samplerYcbcrInfoMap; // Store YCbCr info from pNext chains
+    std::map<VkSamplerYcbcrConversion, int> m_conversionToIdMap; // Mapping from conversion to integer ID for JSON output
     std::map<VkSampler, std::string> m_ImmutableSamplerBindingMap;
     std::vector<std::string> m_deviceExtensions;
     int m_pipelineCount;
@@ -1028,6 +1160,11 @@ static PipelineData s_pipe;
 
 }  // namespace vk_json
 
+namespace vk_json {
+inline int GetYcbcrConversionIdForPrint(VkSamplerYcbcrConversion conversion) {
+    return s_pipe.getYcbcrConversionId(conversion);
+}
+}
 
 // mark any features implemented in the layer as supported
 void set_layer_supported_features(VkPhysicalDeviceFeatures2 *pFeatures)

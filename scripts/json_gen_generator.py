@@ -77,7 +77,7 @@ EXPORT_FUNCTION VKAPI_ATTR {funcReturn} VKAPI_CALL {funcName}({funcTypedParams})
         initInstanceTable(*pInstance, fpGetInstanceProcAddr);
     }}
     {funcStateTrackingCode}
- 
+
     return result;
 }}
 @end function
@@ -179,6 +179,47 @@ EXPORT_FUNCTION VKAPI_ATTR {funcReturn} VKAPI_CALL {funcName}({funcTypedParams})
 }}
 @end function
 
+@foreach function where('{funcName}' == 'vkCreateSamplerYcbcrConversion')
+EXPORT_FUNCTION VKAPI_ATTR {funcReturn} VKAPI_CALL {funcName}({funcTypedParams})
+{{
+    {funcReturn} result = device_dispatch_table({funcDispatchParam})->{funcShortName}({funcNamedParams});
+    {funcStateTrackingCode}
+
+    // Store YCbCr conversion info for JSON layer
+    if (result == VK_SUCCESS) {{
+        vk_json::s_pipe.setYcbcrConversionInfo(pCreateInfo, pYcbcrConversion);
+    }}
+
+    return result;
+}}
+@end function
+
+@foreach function where('{funcName}' == 'vkCreateSampler')
+EXPORT_FUNCTION VKAPI_ATTR {funcReturn} VKAPI_CALL {funcName}({funcTypedParams})
+{{
+    {funcReturn} result = device_dispatch_table({funcDispatchParam})->{funcShortName}({funcNamedParams});
+    {funcStateTrackingCode}
+
+    // Store sampler info and check for YCbCr conversion association
+    if (result == VK_SUCCESS) {{
+        vk_json::s_pipe.setSamplerInfo(pCreateInfo, pSampler);
+    }}
+
+    return result;
+}}
+@end function
+
+@foreach function where('{funcName}' == 'vkDestroySamplerYcbcrConversion')
+EXPORT_FUNCTION VKAPI_ATTR {funcReturn} VKAPI_CALL {funcName}({funcTypedParams})
+{{
+    // Clean up YCbCr conversion info before destroying
+    vk_json::s_pipe.deleteYcbcrConversionInfo(ycbcrConversion);
+
+    device_dispatch_table({funcDispatchParam})->{funcShortName}({funcNamedParams});
+    {funcStateTrackingCode}
+}}
+@end function
+
 // Autogen instance functions
 
 @foreach function where('{funcDispatchType}' == 'instance' and '{funcReturn}' != 'void' and '{funcName}' not in ['vkCreateInstance', 'vkDestroyInstance', 'vkCreateDevice', 'vkGetInstanceProcAddr', 'vkEnumerateDeviceExtensionProperties', 'vkEnumerateDeviceLayerProperties'])
@@ -195,30 +236,30 @@ EXPORT_FUNCTION VKAPI_ATTR {funcReturn} VKAPI_CALL {funcName}({funcTypedParams})
 {{
     instance_dispatch_table({funcDispatchParam})->{funcShortName}({funcNamedParams});
     {funcStateTrackingCode}
-  
+
 }}
 @end function
 
 // Autogen device functions
 
-@foreach function where('{funcDispatchType}' == 'device' and '{funcReturn}' != 'void' and '{funcName}' not in ['vkDestroyDevice', 'vkEnumerateInstanceExtensionProperties', 'vkEnumerateInstanceLayerProperties', 'vkQueuePresentKHR', 'vkGetDeviceProcAddr', 'vkGetPipelinePropertiesEXT'])
+@foreach function where('{funcDispatchType}' == 'device' and '{funcReturn}' != 'void' and '{funcName}' not in ['vkDestroyDevice', 'vkEnumerateInstanceExtensionProperties', 'vkEnumerateInstanceLayerProperties', 'vkQueuePresentKHR', 'vkGetDeviceProcAddr', 'vkGetPipelinePropertiesEXT', 'vkCreateSampler', 'vkCreateSamplerYcbcrConversion'])
 EXPORT_FUNCTION VKAPI_ATTR {funcReturn} VKAPI_CALL {funcName}({funcTypedParams})
 {{
-    
+
     {funcReturn} result = device_dispatch_table({funcDispatchParam})->{funcShortName}({funcNamedParams});
     {funcStateTrackingCode}
-    
+
     return result;
 }}
 @end function
 
-@foreach function where('{funcDispatchType}' == 'device' and '{funcReturn}' == 'void' and '{funcName}' not in ['vkDestroyDevice', 'vkEnumerateInstanceExtensionProperties', 'vkEnumerateInstanceLayerProperties', 'vkGetDeviceProcAddr'])
+@foreach function where('{funcDispatchType}' == 'device' and '{funcReturn}' == 'void' and '{funcName}' not in ['vkDestroyDevice', 'vkEnumerateInstanceExtensionProperties', 'vkEnumerateInstanceLayerProperties', 'vkGetDeviceProcAddr', 'vkDestroySamplerYcbcrConversion'])
 EXPORT_FUNCTION VKAPI_ATTR {funcReturn} VKAPI_CALL {funcName}({funcTypedParams})
 {{
-    
+
     device_dispatch_table({funcDispatchParam})->{funcShortName}({funcNamedParams});
     {funcStateTrackingCode}
-    
+
 }}
 @end function
 
@@ -272,11 +313,11 @@ JSON_INTERCEPT_API = {
     ,
     'vkCreateGraphicsPipelines':
         'vk_json::s_pipe.objResInfo.graphicsPipelineRequestCount += createInfoCount;\n'
-		'\tvk_json::s_pipe.dumpGraphicsPipeline(device, createInfoCount, pCreateInfos, pPipelines);'
+        '\tvk_json::s_pipe.dumpGraphicsPipeline(device, createInfoCount, pCreateInfos, pPipelines);'
     ,
     'vkCreateComputePipelines':
         'vk_json::s_pipe.objResInfo.computePipelineRequestCount += createInfoCount;\n'
-		'\tvk_json::s_pipe.dumpComputePipeline(device, createInfoCount, pCreateInfos, pPipelines);'
+        '\tvk_json::s_pipe.dumpComputePipeline(device, createInfoCount, pCreateInfos, pPipelines);'
     ,
     'vkCreateDescriptorSetLayout':
         'vk_json::s_pipe.objResInfo.descriptorSetLayoutRequestCount++;\n'
@@ -305,6 +346,13 @@ JSON_INTERCEPT_API = {
     'vkCreateSampler':
         'vk_json::s_pipe.objResInfo.samplerRequestCount++;\n'
         '\tvk_json::s_pipe.setSamplerInfo(pCreateInfo, pSampler);'
+    ,
+    'vkCreateSamplerYcbcrConversion':
+        'vk_json::s_pipe.objResInfo.samplerYcbcrConversionRequestCount++;\n'
+        '\tvk_json::s_pipe.setYcbcrConversionInfo(pCreateInfo, pYcbcrConversion);'
+    ,
+    'vkDestroySamplerYcbcrConversion':
+        'vk_json::s_pipe.deleteYcbcrConversionInfo(ycbcrConversion);'
     ,
     'vkCreateDevice':
         '\t// We have seen what the app has requested in vkCreateInstance, and we have assumed that privateData feature is supported.\n'
@@ -386,7 +434,7 @@ JSON_INTERCEPT_API = {
         'if (pCreateInfo) {\n'
         '\t\tvk_json::s_pipe.objResInfo.fenceRequestCount++;\n'
         '\t}\n'
-    ,    
+    ,
     'vkCreateBuffer':
         'if (pCreateInfo) {\n'
         '\t\tvk_json::s_pipe.objResInfo.bufferRequestCount++;\n'
@@ -396,7 +444,7 @@ JSON_INTERCEPT_API = {
         'if (pCreateInfo) {\n'
         '\t\tvk_json::s_pipe.objResInfo.bufferViewRequestCount++;\n'
         '\t}\n'
-    ,    
+    ,
     'vkCreateImage':
         'if (pCreateInfo) {\n'
         '\t\tvk_json::s_pipe.objResInfo.imageRequestCount++;\n'
@@ -425,12 +473,12 @@ JSON_INTERCEPT_API = {
         'if (pCreateInfo) {\n'
         '\t\tvk_json::s_pipe.objResInfo.queryPoolRequestCount++;\n'
         '\t}\n'
-    ,  
+    ,
     'vkCreateDescriptorPool':
         'if (pCreateInfo) {\n'
         '\t\tvk_json::s_pipe.objResInfo.descriptorPoolRequestCount++;\n'
         '\t}\n'
-    ,  
+    ,
     'vkAllocateDescriptorSets':
         'if (pAllocateInfo) {\n'
         '\t\tvk_json::s_pipe.objResInfo.descriptorSetRequestCount += pAllocateInfo->descriptorSetCount;\n'
@@ -446,8 +494,8 @@ JSON_INTERCEPT_API = {
         '\t\tvk_json::s_pipe.objResInfo.commandPoolRequestCount++;\n'
         '\t}\n'
     ,
-    
-    
+
+
 }
 
 class JSONGenGeneratorOptions(GeneratorOptions):
@@ -970,8 +1018,8 @@ class VulkanEnum:
             self.name = name
             self.comment = comment
             self.multiValue = None
-            
-            if value is not None:         
+
+            if value is not None:
 
                 self.multiValue = not isPow2(StrToInt(value))
 
@@ -1017,7 +1065,7 @@ class VulkanEnum:
                 childValue = extBase + (extNum - 1) * extBlockSize + extOffset
                 if ('dir' in child.keys()):
                     childValue = -childValue
-               
+
             # Check for duplicates
             duplicate = False
             for o in self.options:
@@ -1165,7 +1213,7 @@ class VulkanFunction:
         else:
             self.dispatchType = 'device'
 
-        if self.name in extensions and extensions[self.name].type == 'instance':    
+        if self.name in extensions and extensions[self.name].type == 'instance':
             self.type = 'instance'
         else:
             self.type = self.dispatchType
@@ -1188,7 +1236,7 @@ class VulkanFunction:
             'funcNamedParams': self.namedParams,
             'funcTypedParams': self.typedParams,
             'funcDispatchParam': self.parameters[0].name,
-            'funcDispatchType' : self.dispatchType, 
+            'funcDispatchType' : self.dispatchType,
             'funcStateTrackingCode': self.stateTrackingCode,
             'funcSafeToPrint': self.safeToPrint,
         }
@@ -1255,7 +1303,7 @@ class VulkanStruct:
         self.conditionVars = ''
 
         self.structureIndex = -1
-        
+
         if(self.structExtends is not None):
             for member in self.members:
                 if(member.structValues is not None):
@@ -1264,7 +1312,7 @@ class VulkanStruct:
                             for opt in enum.options:
                                 if(member.structValues  == opt.name):
                                     self.structureIndex = opt.value
-              
+
     def values(self):
         return {
             'sctName': self.name,

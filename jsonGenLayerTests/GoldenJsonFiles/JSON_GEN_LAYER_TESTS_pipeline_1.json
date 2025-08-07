@@ -3,9 +3,58 @@
     {
         "YcbcrSamplers" :
         [
+            {
+                "1000" :
+                {
+                    "sType" : "VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO",
+                    "pNext":"NULL",
+                    "format" : "VK_FORMAT_G8_B8R8_2PLANE_420_UNORM",
+                    "ycbcrModel" : "VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_709",
+                    "ycbcrRange" : "VK_SAMPLER_YCBCR_RANGE_ITU_FULL",
+                    "components": 
+                    {
+                        "r" : "VK_COMPONENT_SWIZZLE_IDENTITY",
+                        "g" : "VK_COMPONENT_SWIZZLE_IDENTITY",
+                        "b" : "VK_COMPONENT_SWIZZLE_IDENTITY",
+                        "a" : "VK_COMPONENT_SWIZZLE_IDENTITY"
+                    },
+                    "xChromaOffset" : "VK_CHROMA_LOCATION_COSITED_EVEN",
+                    "yChromaOffset" : "VK_CHROMA_LOCATION_COSITED_EVEN",
+                    "chromaFilter" : "VK_FILTER_NEAREST",
+                    "forceExplicitReconstruction" : "VK_FALSE"
+                }
+            }
         ],
         "ImmutableSamplers" :
         [
+            {
+                "pImmutableSamplers_0_0" :
+                {
+                    "sType" : "VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO",
+                    "pNext":
+                    {
+                        "sType" : "VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO",
+                        "pNext":"NULL",
+                        "conversion" : 1000
+                    },
+                    "flags" : "0",
+                    "magFilter" : "VK_FILTER_LINEAR",
+                    "minFilter" : "VK_FILTER_LINEAR",
+                    "mipmapMode" : "VK_SAMPLER_MIPMAP_MODE_LINEAR",
+                    "addressModeU" : "VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE",
+                    "addressModeV" : "VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE",
+                    "addressModeW" : "VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE",
+                    "mipLodBias" : 0,
+                    "anisotropyEnable" : "VK_FALSE",
+                    "maxAnisotropy" : 0,
+                    "compareEnable" : "VK_FALSE",
+                    "compareOp" : "VK_COMPARE_OP_NEVER",
+                    "minLod" : 0,
+                    "maxLod" : 0,
+                    "borderColor" : "VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK",
+                    "unnormalizedCoordinates" : "VK_FALSE"
+                }
+            }
         ],
         "DescriptorSetLayouts" :
         [
@@ -15,7 +64,7 @@
                     "sType" : "VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO",
                     "pNext":"NULL",
                     "flags" : "0",
-                    "bindingCount" : 1,
+                    "bindingCount" : 2,
                     "pBindings": 
                     [
                     {
@@ -25,12 +74,22 @@
                         "stageFlags" : "VK_SHADER_STAGE_COMPUTE_BIT",
                         "pImmutableSamplers":
                         "NULL"
+                    },
+                    {
+                        "binding" : 1,
+                        "descriptorType" : "VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER",
+                        "descriptorCount" : 1,
+                        "stageFlags" : "VK_SHADER_STAGE_COMPUTE_BIT",
+                        "pImmutableSamplers":
+                        [
+                        "pImmutableSamplers_1_0"
+                        ]
                     }
                     ]
                 }
             }
         ],
-        "PipelineLayout" : 
+        "PipelineLayout" :
         {
             "sType" : "VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO",
             "pNext":"NULL",
@@ -44,7 +103,7 @@
             "pPushConstantRanges": 
             "NULL"
         },
-        "ComputePipeline" : 
+        "ComputePipeline" :
         {
             "sType" : "VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO",
             "pNext":"NULL",
@@ -70,28 +129,96 @@
                 "stage" : "VK_SHADER_STAGE_COMPUTE_BIT",
                 "filename" : "JSON_GEN_LAYER_TESTS_pipeline_1.compute.spv"
             }
-        ]
+        ],
+        "PhysicalDeviceFeatures" :
+        {
+            "sType" : "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2",
+            "pNext":
+            {
+                "sType" : "VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES",
+                "pNext":"NULL",
+                "samplerYcbcrConversion" : "VK_TRUE"
+            },
+            "features": 
+            {
+                "robustBufferAccess" : "VK_TRUE",
+                "fullDrawIndexUint32" : "VK_TRUE",
+                "imageCubeArray" : "VK_TRUE",
+                "independentBlend" : "VK_TRUE",
+                "geometryShader" : "VK_TRUE",
+                "tessellationShader" : "VK_TRUE",
+                "sampleRateShading" : "VK_TRUE",
+                "dualSrcBlend" : "VK_TRUE",
+                "logicOp" : "VK_TRUE",
+                "multiDrawIndirect" : "VK_TRUE",
+                "drawIndirectFirstInstance" : "VK_TRUE",
+                "depthClamp" : "VK_TRUE",
+                "depthBiasClamp" : "VK_TRUE",
+                "fillModeNonSolid" : "VK_TRUE",
+                "depthBounds" : "VK_TRUE",
+                "wideLines" : "VK_TRUE",
+                "largePoints" : "VK_TRUE",
+                "alphaToOne" : "VK_TRUE",
+                "multiViewport" : "VK_TRUE",
+                "samplerAnisotropy" : "VK_TRUE",
+                "textureCompressionETC2" : "VK_FALSE",
+                "textureCompressionASTC_LDR" : "VK_FALSE",
+                "textureCompressionBC" : "VK_TRUE",
+                "occlusionQueryPrecise" : "VK_TRUE",
+                "pipelineStatisticsQuery" : "VK_TRUE",
+                "vertexPipelineStoresAndAtomics" : "VK_TRUE",
+                "fragmentStoresAndAtomics" : "VK_TRUE",
+                "shaderTessellationAndGeometryPointSize" : "VK_TRUE",
+                "shaderImageGatherExtended" : "VK_TRUE",
+                "shaderStorageImageExtendedFormats" : "VK_TRUE",
+                "shaderStorageImageMultisample" : "VK_TRUE",
+                "shaderStorageImageReadWithoutFormat" : "VK_TRUE",
+                "shaderStorageImageWriteWithoutFormat" : "VK_TRUE",
+                "shaderUniformBufferArrayDynamicIndexing" : "VK_TRUE",
+                "shaderSampledImageArrayDynamicIndexing" : "VK_TRUE",
+                "shaderStorageBufferArrayDynamicIndexing" : "VK_TRUE",
+                "shaderStorageImageArrayDynamicIndexing" : "VK_TRUE",
+                "shaderClipDistance" : "VK_TRUE",
+                "shaderCullDistance" : "VK_TRUE",
+                "shaderFloat64" : "VK_TRUE",
+                "shaderInt64" : "VK_TRUE",
+                "shaderInt16" : "VK_TRUE",
+                "shaderResourceResidency" : "VK_TRUE",
+                "shaderResourceMinLod" : "VK_TRUE",
+                "sparseBinding" : "VK_TRUE",
+                "sparseResidencyBuffer" : "VK_TRUE",
+                "sparseResidencyImage2D" : "VK_TRUE",
+                "sparseResidencyImage3D" : "VK_TRUE",
+                "sparseResidency2Samples" : "VK_TRUE",
+                "sparseResidency4Samples" : "VK_TRUE",
+                "sparseResidency8Samples" : "VK_TRUE",
+                "sparseResidency16Samples" : "VK_TRUE",
+                "sparseResidencyAliased" : "VK_TRUE",
+                "variableMultisampleRate" : "VK_TRUE",
+                "inheritedQueries" : "VK_TRUE"
+            }
+        },
     },
-    "EnabledExtensions" : 
+    "EnabledExtensions" :
     [
     ],
-    "PipelineUUID" : 
+    "PipelineUUID" :
     [
-        32,
-        6,
-        226,
-        50,
-        19,
-        74,
-        246,
-        232,
-        54,
-        124,
-        197,
-        163,
-        80,
-        127,
-        246,
-        209
+        207,
+        93,
+        164,
+        115,
+        0,
+        107,
+        159,
+        2,
+        31,
+        219,
+        70,
+        31,
+        52,
+        106,
+        40,
+        23
     ]
 }

@@ -49,43 +49,46 @@ static VkPipelineShaderStageCreateInfo  globalShaderStageInfo[3] = { { }, { }, {
 static VkFormat globalColorFormat = VK_FORMAT_B8G8R8A8_UNORM;
 static int      globalWidth  = 1920;
 static int      globalHeight = 1080;
+static VkSamplerYcbcrConversion globalYcbcrConversion = VK_NULL_HANDLE;
+static VkSampler globalYcbcrSampler = VK_NULL_HANDLE;
 int globalUUIDGraphicsPipeline[] = {
-    119,
-    108,
-    254,
-    154,
+    44,
+    238,
+    130,
+    31,
+    216,
+    20,
+    150,
     61,
-    91,
-    217,
-    72,
-    164,
-    186,
-    245,
-    99,
-    244,
+    25,
+    55,
+    80,
     243,
-    84,
-    164
+    36,
+    85,
+    205,
+    44
 };
 int globalUUIDComputePipeline[] = {
-    32,
-    6,
-    226,
-    50,
-    19,
-    74,
-    246,
-    232,
-    54,
-    124,
-    197,
-    163,
-    80,
-    127,
-    246,
-    209
+    207,
+    93,
+    164,
+    115,
+    0,
+    107,
+    159,
+    2,
+    31,
+    219,
+    70,
+    31,
+    52,
+    106,
+    40,
+    23
 };
 static VkDescriptorSetLayout globalDescriptorSetLayout = VK_NULL_HANDLE;
+static VkDescriptorSetLayout globalGraphicsDescriptorSetLayout = VK_NULL_HANDLE;
 
 #define LOG(fn) if (result == VK_SUCCESS) std::cout << fn << " OK" << std::endl;      \
                 else                      std::cout << fn << " ERROR!!" << std::endl; \
@@ -115,10 +118,19 @@ VkResult createInstance()
     result = checkValidationLayerSupport();
     LOG("checkValidationLayerSupport");
 
-    //Create a Vulkan instance
+    //Create a Vulkan instance with VkApplicationInfo for Vulkan 1.1 (needed for YCbCr support)
+    VkApplicationInfo appInfo = {};
+    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    appInfo.pNext = nullptr;
+    appInfo.pApplicationName = "JsonGenLayerTests";
+    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+    appInfo.pEngineName = "JsonGenLayerTests";
+    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
+    appInfo.apiVersion = VK_API_VERSION_1_1;  // Use Vulkan 1.1 for YCbCr support
+
     VkInstanceCreateInfo instanceCreateInfo = {};
     instanceCreateInfo.sType                    = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    instanceCreateInfo.pApplicationInfo         = NULL;
+    instanceCreateInfo.pApplicationInfo         = &appInfo;
     instanceCreateInfo.enabledExtensionCount    = 0;
     instanceCreateInfo.ppEnabledExtensionNames  = NULL;
 
@@ -157,7 +169,7 @@ VkResult selectPhysicalDevice()
     assert(result == VK_SUCCESS);
 
     vkGetPhysicalDeviceProperties(globalPhysdevs[0], &globalDeviceProperties);
-    
+
     return result;
 }
 
@@ -263,6 +275,17 @@ void createGraphicsShaderStageInfo()
     globalShaderStageInfo[1] = fragShaderStageInfo;
 }
 
+void createComputeShaderStageInfo()
+{
+    VkPipelineShaderStageCreateInfo compShaderStageInfo{};
+    compShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    compShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    compShaderStageInfo.pName = "main";
+    compShaderStageInfo.module = loadSPIRVShader(SHADERS_PATH + PATH_SEPARATOR "headless.comp.spv");
+
+    globalShaderStageInfo[2] = compShaderStageInfo;
+}
+
 VkResult createRenderPass()
 {
     VkResult result = VK_SUCCESS;
@@ -315,8 +338,30 @@ VkResult createGraphicsPipeline()
 {
     VkResult result;
 
+    // Create descriptor set layout with YCbCr sampler as immutable sampler
+    VkDescriptorSetLayoutBinding samplerBinding = {};
+    samplerBinding.binding = 0;
+    samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    samplerBinding.descriptorCount = 1;
+    samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    samplerBinding.pImmutableSamplers = &globalYcbcrSampler; // Use YCbCr sampler as immutable sampler
+
+    VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
+    descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorSetLayoutCreateInfo.bindingCount = 1;
+    descriptorSetLayoutCreateInfo.pBindings = &samplerBinding;
+
+    result = vkCreateDescriptorSetLayout(globalDev, &descriptorSetLayoutCreateInfo, nullptr, &globalGraphicsDescriptorSetLayout);
+    if (result != VK_SUCCESS) {
+        std::cout << "Failed to create graphics descriptor set layout" << std::endl;
+        return result;
+    }
+    LOG("vkCreateDescriptorSetLayout - Graphics Pipeline");
+
     VkPipelineLayoutCreateInfo layoutCreateInfo = {};
-    layoutCreateInfo.sType                     = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layoutCreateInfo.setLayoutCount = 1;
+    layoutCreateInfo.pSetLayouts = &globalGraphicsDescriptorSetLayout;
     result = vkCreatePipelineLayout(globalDev, &layoutCreateInfo, nullptr, &globalGraphicsPipelineLayout);
     LOG("vkCreatePipelineLayout - Graphics Pipeline");
 
@@ -388,45 +433,132 @@ VkResult createComputePipeline()
 {
     VkResult result;
 
-    VkDescriptorSetLayoutBinding binding = {};
-    binding.binding = 0;
-    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    binding.descriptorCount = 1;
-    binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    // Create bindings: one for uniform buffer, one for YCbCr sampler as immutable sampler
+    VkDescriptorSetLayoutBinding bindings[2] = {};
+
+    // Uniform buffer binding
+    bindings[0].binding = 0;
+    bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bindings[0].descriptorCount = 1;
+    bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    // YCbCr sampler binding as immutable sampler
+    bindings[1].binding = 1;
+    bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    bindings[1].descriptorCount = 1;
+    bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    bindings[1].pImmutableSamplers = &globalYcbcrSampler; // Use YCbCr sampler as immutable sampler
 
     VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo = {};
     descriptorSetLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptorSetLayoutCreateInfo.bindingCount = 1;
-    descriptorSetLayoutCreateInfo.pBindings = &binding;
+    descriptorSetLayoutCreateInfo.bindingCount = 2;
+    descriptorSetLayoutCreateInfo.pBindings = bindings;
 
     vkCreateDescriptorSetLayout(globalDev, &descriptorSetLayoutCreateInfo, nullptr, &globalDescriptorSetLayout);
-    
+
     VkPipelineLayoutCreateInfo layoutCreateInfo = {};
     layoutCreateInfo.sType                     = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutCreateInfo.setLayoutCount            = 1;
     layoutCreateInfo.pSetLayouts               = &globalDescriptorSetLayout;
-
     result = vkCreatePipelineLayout(globalDev, &layoutCreateInfo, nullptr, &globalComputePipelineLayout);
     LOG("vkCreatePipelineLayout - Compute Pipeline");
 
-    VkComputePipelineCreateInfo computePipelineCreateInfo = {};
-    computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    computePipelineCreateInfo.layout = globalComputePipelineLayout;
+    VkComputePipelineCreateInfo pipelineCreateInfo = {};
+    pipelineCreateInfo.sType                   = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineCreateInfo.layout                  = globalComputePipelineLayout;
+    pipelineCreateInfo.stage                   = globalShaderStageInfo[2];
 
-    VkPipelineShaderStageCreateInfo shaderStage = {};
-    shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shaderStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    shaderStage.module = loadSPIRVShader(SHADERS_PATH + PATH_SEPARATOR "headless.comp.spv");
-    shaderStage.pName = "main";
-
-    globalShaderStageInfo[2] = shaderStage;
-
-    computePipelineCreateInfo.stage = shaderStage;
-
-    result = vkCreateComputePipelines(globalDev, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, NULL, &globalComputePipeline);
+    result = vkCreateComputePipelines(globalDev, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &globalComputePipeline);
     LOG("vkCreateComputePipelines");
 
     return result;
+}
+
+VkResult createYcbcrSamplers()
+{
+    VkResult result;
+
+    // Check if YCbCr conversion feature is supported
+    VkPhysicalDeviceFeatures2 features2 = {};
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+
+    VkPhysicalDeviceSamplerYcbcrConversionFeatures ycbcrFeatures = {};
+    ycbcrFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES;
+    features2.pNext = &ycbcrFeatures;
+
+    vkGetPhysicalDeviceFeatures2(globalPhysdevs[0], &features2);
+
+    if (!ycbcrFeatures.samplerYcbcrConversion) {
+        std::cout << "YCbCr conversion not supported, skipping YCbCr sampler test" << std::endl;
+        return VK_SUCCESS;
+    }
+
+    // Create YCbCr conversion
+    VkSamplerYcbcrConversionCreateInfo ycbcrCreateInfo = {};
+    ycbcrCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_CREATE_INFO;
+    ycbcrCreateInfo.format = VK_FORMAT_G8_B8R8_2PLANE_420_UNORM;
+    ycbcrCreateInfo.ycbcrModel = VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_709;
+    ycbcrCreateInfo.ycbcrRange = VK_SAMPLER_YCBCR_RANGE_ITU_FULL;
+    ycbcrCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    ycbcrCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    ycbcrCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    ycbcrCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+    ycbcrCreateInfo.xChromaOffset = VK_CHROMA_LOCATION_COSITED_EVEN;
+    ycbcrCreateInfo.yChromaOffset = VK_CHROMA_LOCATION_COSITED_EVEN;
+    ycbcrCreateInfo.chromaFilter = VK_FILTER_NEAREST;
+    ycbcrCreateInfo.forceExplicitReconstruction = VK_FALSE;
+
+    result = vkCreateSamplerYcbcrConversion(globalDev, &ycbcrCreateInfo, nullptr, &globalYcbcrConversion);
+    if (result != VK_SUCCESS) {
+        std::cout << "Failed to create YCbCr conversion" << std::endl;
+        return result;
+    }
+    LOG("vkCreateSamplerYcbcrConversion");
+
+    // Create sampler with YCbCr conversion
+    VkSamplerYcbcrConversionInfo ycbcrInfo = {};
+    ycbcrInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO;
+    ycbcrInfo.conversion = globalYcbcrConversion;
+
+    VkSamplerCreateInfo samplerCreateInfo = {};
+    samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    samplerCreateInfo.pNext = &ycbcrInfo;
+    samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+    samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerCreateInfo.anisotropyEnable = VK_FALSE;
+    samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+
+    result = vkCreateSampler(globalDev, &samplerCreateInfo, nullptr, &globalYcbcrSampler);
+    if (result != VK_SUCCESS) {
+        std::cout << "Failed to create YCbCr sampler" << std::endl;
+        vkDestroySamplerYcbcrConversion(globalDev, globalYcbcrConversion, nullptr);
+        globalYcbcrConversion = VK_NULL_HANDLE;
+        return result;
+    }
+    LOG("vkCreateSampler with YCbCr conversion");
+
+    // YCbCr sampler and conversion will be cleaned up in destroyYcbcrSamplers()
+
+    return VK_SUCCESS;
+}
+
+void destroyYcbcrSamplers()
+{
+    if (globalYcbcrSampler != VK_NULL_HANDLE) {
+        vkDestroySampler(globalDev, globalYcbcrSampler, nullptr);
+        globalYcbcrSampler = VK_NULL_HANDLE;
+        std::cout << "Destroyed YCbCr sampler OK" << std::endl;
+    }
+
+    if (globalYcbcrConversion != VK_NULL_HANDLE) {
+        vkDestroySamplerYcbcrConversion(globalDev, globalYcbcrConversion, nullptr);
+        globalYcbcrConversion = VK_NULL_HANDLE;
+        std::cout << "Destroyed YCbCr conversion OK" << std::endl;
+    }
 }
 
 bool compareUUID(uint8_t* uuidGraphics, uint8_t* uuidCompute)
@@ -494,12 +626,14 @@ bool checkPipelinePropertiesEXT()
 
 static VkResult cleanup()
 {
+    destroyYcbcrSamplers();
     vkDestroyRenderPass(globalDev, globalRenderPass, nullptr);
     vkDestroyPipeline(globalDev, globalGraphicsPipeline, nullptr);
     vkDestroyPipeline(globalDev, globalComputePipeline, nullptr);
     vkDestroyPipelineLayout(globalDev, globalGraphicsPipelineLayout, nullptr);
     vkDestroyPipelineLayout(globalDev, globalComputePipelineLayout, nullptr);
     vkDestroyDescriptorSetLayout(globalDev, globalDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(globalDev, globalGraphicsDescriptorSetLayout, nullptr);
     vkDestroyShaderModule(globalDev, globalShaderStageInfo[0].module, nullptr);
     vkDestroyShaderModule(globalDev, globalShaderStageInfo[1].module, nullptr);
     vkDestroyShaderModule(globalDev, globalShaderStageInfo[2].module, nullptr);
@@ -536,7 +670,7 @@ static bool parseCommandLineArgs(int argc, char** argv)
             } else { // There was no argument to the destination option.
                 std::cerr << "--shaders option requires one argument." << std::endl;
                 return false;
-            }  
+            }
         } else {
             show_usage(argv[0]);
             return false;
@@ -571,8 +705,11 @@ int main(int argc, char** argv)
     CHECK_RESULT(createLogicalDevice());
 
     createGraphicsShaderStageInfo();
+    createComputeShaderStageInfo();
 
     CHECK_RESULT(createRenderPass());
+
+    CHECK_RESULT(createYcbcrSamplers());
 
     CHECK_RESULT(createGraphicsPipeline());
 

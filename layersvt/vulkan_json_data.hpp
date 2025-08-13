@@ -68,6 +68,9 @@ static void dumpPNextChain(const void* pNext);
 
 #define INDENT(sz) s_num_spaces += (sz);
 
+// Forward declaration for layer-provided accessor used by serializer
+int GetYcbcrConversionIdForPrint(VkSamplerYcbcrConversion conversion);
+
 #define PRINT_VAL(c) PRINT_SPACE \
     if (s != "") {\
         _OUT << "\"" << s << "\"" << " : " << o << (c ? "," : "") << std::endl; \
@@ -14525,18 +14528,45 @@ static void print_VkRenderPassBeginInfo(const VkRenderPassBeginInfo * obj, const
 
 static void print_VkSamplerYcbcrConversion(VkSamplerYcbcrConversion obj, const std::string& str, bool commaNeeded=true) {
      PRINT_SPACE
-     if (commaNeeded)
-         _OUT << "\"" << str << "\"" << "," << std::endl;
-     else
-         _OUT << "\"" << str << "\"" << std::endl;
-}
+     if (str != "") _OUT << "\"" << str << "\"" << " : ";
+     // Use layer accessor to translate handle to integer ID for JSON
+     int conversionId = ::vk_json::GetYcbcrConversionIdForPrint(obj);
+     if (conversionId >= 0) {
+         if (commaNeeded)
+             _OUT << conversionId << "," << std::endl;
+         else
+             _OUT << conversionId << std::endl;
+     } else {
+         if (commaNeeded)
+             _OUT << "\"\"" << "," << std::endl;
+         else
+             _OUT << "\"\"" << std::endl;
+     }
+ }
 static void print_VkSamplerYcbcrConversion(const VkSamplerYcbcrConversion * obj, const std::string& str, bool commaNeeded=true) {
      PRINT_SPACE
-     if (commaNeeded)
-         _OUT << "\"" << str << "\"" << "," << std::endl;
-     else
-         _OUT << "\"" << str << "\"" << std::endl;
-}
+     if (str != "") _OUT << "\"" << str << "\"" << " : ";
+     if (obj) {
+         // Use layer accessor to translate handle to integer ID for JSON
+         int conversionId = ::vk_json::GetYcbcrConversionIdForPrint(*obj);
+         if (conversionId >= 0) {
+             if (commaNeeded)
+                 _OUT << conversionId << "," << std::endl;
+             else
+                 _OUT << conversionId << std::endl;
+         } else {
+             if (commaNeeded)
+                 _OUT << "\"\"" << "," << std::endl;
+             else
+                 _OUT << "\"\"" << std::endl;
+         }
+     } else {
+         if (commaNeeded)
+             _OUT << "\"\"" << "," << std::endl;
+         else
+             _OUT << "\"\"" << std::endl;
+     }
+ }
 
 static void print_VkDescriptorUpdateTemplate(VkDescriptorUpdateTemplate obj, const std::string& str, bool commaNeeded=true) {
      PRINT_SPACE
@@ -18179,17 +18209,17 @@ static void print_VkSamplerYcbcrConversionInfo(VkSamplerYcbcrConversionInfo obj,
          _OUT << "\"pNext\":" << "\"NULL\""<< ","<< std::endl;
      }
 
-     /** Note: printing just an empty entry here **/
-     PRINT_SPACE    _OUT << "\"" << "conversion" << "\"" << " : " << "\"" << "\"" << std::endl;
+           // Print mapped conversion ID
+      print_VkSamplerYcbcrConversion(obj.conversion, "conversion", 0);
 
-     INDENT(-4);
-     PRINT_SPACE
-     if (commaNeeded)
-         _OUT << "}," << std::endl;
-     else
-         _OUT << "}" << std::endl;
-}
-static void print_VkSamplerYcbcrConversionInfo(const VkSamplerYcbcrConversionInfo * obj, const std::string& s, bool commaNeeded=true) {
+      INDENT(-4);
+      PRINT_SPACE
+      if (commaNeeded)
+          _OUT << "}," << std::endl;
+      else
+          _OUT << "}" << std::endl;
+  }
+  static void print_VkSamplerYcbcrConversionInfo(const VkSamplerYcbcrConversionInfo * obj, const std::string& s, bool commaNeeded=true) {
      PRINT_SPACE
      _OUT << "{" << std::endl;
      INDENT(4);
@@ -18203,13 +18233,13 @@ static void print_VkSamplerYcbcrConversionInfo(const VkSamplerYcbcrConversionInf
          _OUT << "\"pNext\":" << "\"NULL\""<< ","<< std::endl;
      }
 
-     /** Note: printing just an empty entry here **/
-     PRINT_SPACE    _OUT << "\"" << "conversion" << "\"" << " : " << "\"" << "\"" << std::endl;
+           // Print mapped conversion ID
+      print_VkSamplerYcbcrConversion(obj->conversion, "conversion", 0);
 
-     INDENT(-4);
-     PRINT_SPACE
-     if (commaNeeded)
-         _OUT << "}," << std::endl;
+      INDENT(-4);
+      PRINT_SPACE
+      if (commaNeeded)
+          _OUT << "}," << std::endl;
      else
          _OUT << "}" << std::endl;
 }
@@ -24090,6 +24120,8 @@ static void dumpPNextChain(const void* pNext) {
              case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES:print_VkPhysicalDeviceVulkan12Features((VkPhysicalDeviceVulkan12Features *) pNext, "VkPhysicalDeviceVulkan12Features", true);
              break;
              case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES:print_VkPhysicalDeviceVulkan12Properties((VkPhysicalDeviceVulkan12Properties *) pNext, "VkPhysicalDeviceVulkan12Properties", true);
+             break;
+             case VK_STRUCTURE_TYPE_APPLICATION_INFO:
              break;
              default: assert(false); // No structure type matching
          }
